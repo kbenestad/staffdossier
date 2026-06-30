@@ -157,7 +157,7 @@ let state = emptyState();
 function emptyState() {
   return {
     personal: {
-      name: '', email: '', phone: '',
+      name: '', personalEmail: '', personalPhone: '', workEmail: '', workPhone: '',
       address: { line1: '', city: '', province: '', postalCode: '', country: '' },
       photo: null,
       education: [],
@@ -165,7 +165,7 @@ function emptyState() {
       emergencyContact: { name: '', relationship: '', phone: '', email: '' }
     },
     employment: {
-      hireDate: '', probationEnd: '', contractType: '',
+      hireDate: '', contractType: '',
       currentRole: '', roleHistory: [],
       terminationDate: '', terminationReason: '',
       eligibleForRehire: ''
@@ -330,13 +330,21 @@ function buildPersonalTab() {
   nameIn.addEventListener('input', e => { state.personal.name = e.target.value; });
   grid.appendChild(field(S('field-name'), nameIn, { full: true }));
 
-  const emailIn = mkInput({ type: 'email', value: state.personal.email });
-  emailIn.addEventListener('input', e => { state.personal.email = e.target.value; });
-  grid.appendChild(field(S('field-email'), emailIn));
+  const workEmailIn = mkInput({ type: 'email', value: state.personal.workEmail });
+  workEmailIn.addEventListener('input', e => { state.personal.workEmail = e.target.value; });
+  grid.appendChild(field(S('field-work-email'), workEmailIn));
 
-  const phoneIn = mkInput({ type: 'tel', value: state.personal.phone });
-  phoneIn.addEventListener('input', e => { state.personal.phone = e.target.value; });
-  grid.appendChild(field(S('field-phone'), phoneIn));
+  const workPhoneIn = mkInput({ type: 'tel', value: state.personal.workPhone });
+  workPhoneIn.addEventListener('input', e => { state.personal.workPhone = e.target.value; });
+  grid.appendChild(field(S('field-work-phone'), workPhoneIn));
+
+  const personalEmailIn = mkInput({ type: 'email', value: state.personal.personalEmail });
+  personalEmailIn.addEventListener('input', e => { state.personal.personalEmail = e.target.value; });
+  grid.appendChild(field(S('field-personal-email'), personalEmailIn));
+
+  const personalPhoneIn = mkInput({ type: 'tel', value: state.personal.personalPhone });
+  personalPhoneIn.addEventListener('input', e => { state.personal.personalPhone = e.target.value; });
+  grid.appendChild(field(S('field-personal-phone'), personalPhoneIn));
 
   // Address: 4 text fields + country dropdown
   const addr = state.personal.address;
@@ -472,10 +480,6 @@ function buildEmploymentTab() {
   const hireDateIn = mkInput({ type: 'date', value: state.employment.hireDate });
   hireDateIn.addEventListener('input', e => { state.employment.hireDate = e.target.value; });
   grid.appendChild(field(S('field-hire-date'), hireDateIn));
-
-  const probIn = mkInput({ type: 'date', value: state.employment.probationEnd });
-  probIn.addEventListener('input', e => { state.employment.probationEnd = e.target.value; });
-  grid.appendChild(field(S('field-probation-end'), probIn));
 
   const contractSel = mkSelect(CFG['contract-types'] || [], state.employment.contractType,
     e => { state.employment.contractType = e.target.value; });
@@ -1009,11 +1013,13 @@ function buildOutputHtml() {
   let personalHtml = `<div class="card">
   <div class="card-title">Personal Information</div>
   <table>`;
-  if (p.name)  personalHtml += `<tr><th>Full name</th><td>${esc(p.name)}</td></tr>`;
-  if (p.email) personalHtml += `<tr><th>Email</th><td><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></td></tr>`;
-  if (p.phone) personalHtml += `<tr><th>Phone</th><td>${esc(p.phone)}</td></tr>`;
+  if (p.name)         personalHtml += `<tr><th>Full name</th><td>${esc(p.name)}</td></tr>`;
+  if (p.workEmail)    personalHtml += `<tr><th>Work email</th><td><a href="mailto:${esc(p.workEmail)}">${esc(p.workEmail)}</a></td></tr>`;
+  if (p.workPhone)    personalHtml += `<tr><th>Work phone</th><td>${esc(p.workPhone)}</td></tr>`;
+  if (p.personalEmail) personalHtml += `<tr class="print-private"><th>Personal email</th><td><a href="mailto:${esc(p.personalEmail)}">${esc(p.personalEmail)}</a></td></tr>`;
+  if (p.personalPhone) personalHtml += `<tr class="print-private"><th>Personal phone</th><td>${esc(p.personalPhone)}</td></tr>`;
   if (addrParts.length) {
-    personalHtml += `<tr><th>Address</th><td>${addrParts.map(esc).join('<br>')}</td></tr>`;
+    personalHtml += `<tr class="print-private"><th>Address</th><td>${addrParts.map(esc).join('<br>')}</td></tr>`;
   }
   personalHtml += `</table></div>`;
 
@@ -1046,7 +1052,7 @@ function buildOutputHtml() {
 
   const ec = p.emergencyContact || {};
   if (ec.name || ec.phone || ec.email) {
-    personalHtml += `<div class="card"><div class="card-title">Emergency Contact / Next of Kin</div><table>`;
+    personalHtml += `<div class="card print-private"><div class="card-title">Emergency Contact / Next of Kin</div><table>`;
     if (ec.name)         personalHtml += `<tr><th>Name</th><td>${esc(ec.name)}</td></tr>`;
     if (ec.relationship) personalHtml += `<tr><th>Relationship</th><td>${esc(ec.relationship)}</td></tr>`;
     if (ec.phone)        personalHtml += `<tr><th>Phone</th><td>${esc(ec.phone)}</td></tr>`;
@@ -1056,9 +1062,8 @@ function buildOutputHtml() {
 
   // ── Employment section ────────────────────────────────────────────
   let employmentHtml = `<div class="card"><div class="card-title">Employment at CAP</div><table>`;
-  if (e.hireDate)       employmentHtml += `<tr><th>Hire date</th><td>${esc(formatDate(e.hireDate))}</td></tr>`;
-  if (e.probationEnd)   employmentHtml += `<tr><th>Probation end</th><td>${esc(formatDate(e.probationEnd))}</td></tr>`;
-  if (e.contractType)   employmentHtml += `<tr><th>Contract type</th><td>${esc(e.contractType)}</td></tr>`;
+  if (e.hireDate)     employmentHtml += `<tr><th>Hire date</th><td>${esc(formatDate(e.hireDate))}</td></tr>`;
+  if (e.contractType) employmentHtml += `<tr><th>Contract type</th><td>${esc(e.contractType)}</td></tr>`;
   if (e.currentRole)    employmentHtml += `<tr><th>Current role</th><td>${esc(e.currentRole)}</td></tr>`;
   if (e.eligibleForRehire) employmentHtml += `<tr><th>Eligible for rehire</th><td>${esc(e.eligibleForRehire)}</td></tr>`;
   employmentHtml += `</table></div>`;
@@ -1164,6 +1169,8 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1
 .hdr-org{margin-left:auto;text-align:right;flex-shrink:0;}
 .hdr-org .org-name{font-size:13px;font-weight:700;color:var(--muted);}
 .hdr-org .org-sub{font-size:12px;color:var(--muted);}
+.vcf-btn{display:inline-block;margin-top:8px;padding:4px 12px;font:600 12px/1.4 system-ui,sans-serif;color:var(--accent);background:none;border:1px solid currentColor;border-radius:20px;cursor:pointer;text-decoration:none;}
+.vcf-btn:hover{background:var(--accent);color:#fff;}
 /* Tabs */
 .tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:20px;}
 .tab-btn{padding:9px 18px;font:600 13px/1 system-ui,sans-serif;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;border-radius:6px 6px 0 0;white-space:nowrap;}
@@ -1210,6 +1217,30 @@ li{margin-bottom:4px;font-size:13px;}
 .empty{color:var(--muted);font-size:13px;padding:4px 0;}
 #lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out;}
 #lb img{max-width:min(90vw,900px);max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5);object-fit:contain;}
+/* Print bar */
+.print-bar{position:fixed;bottom:24px;right:24px;z-index:100;}
+.print-bar button{padding:9px 20px;font:600 13px/1 system-ui,sans-serif;background:var(--accent);color:#fff;border:none;border-radius:24px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.2);}
+.print-bar button:hover{filter:brightness(1.1);}
+/* Print dialog */
+.print-dlg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200;}
+.print-dlg-box{background:#fff;border-radius:12px;padding:24px 28px;min-width:300px;box-shadow:0 8px 40px rgba(0,0,0,.2);}
+.print-dlg-box h3{margin:0 0 16px;font-size:15px;color:var(--text);}
+.print-dlg-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:14px 0 6px;}
+.print-dlg-box label{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px;cursor:pointer;}
+.print-dlg-box hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
+.print-dlg-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+.print-dlg-btns button{padding:7px 18px;font:600 13px/1 system-ui,sans-serif;border-radius:6px;cursor:pointer;background:#fff;border:1px solid var(--border);color:var(--text);}
+.print-dlg-btns .btn-print{background:var(--accent);color:#fff;border-color:var(--accent);}
+/* Print visibility toggles */
+body.no-photo .hdr-photo{display:none!important;}
+body.no-private .print-private{display:none!important;}
+body.no-pane-personal #personal,body.no-pane-employment #employment,body.no-pane-documents #documents,body.no-pane-reviews #reviews,body.no-pane-files #files{display:none!important;}
+@media print{
+  .tab-pane{display:block!important;}
+  .tabs,.print-bar,.print-dlg,#lb{display:none!important;}
+  .wrap{max-width:100%;padding:0;}
+  .card{box-shadow:none;break-inside:avoid;}
+}
 </style>
 </head>
 <body>
@@ -1226,6 +1257,7 @@ li{margin-bottom:4px;font-size:13px;}
   <div class="hdr-org">
     <div class="org-name">${esc(org)}</div>
     <div class="org-sub">Staff Dossier</div>
+    ${(p.workEmail||p.personalEmail||p.workPhone||p.personalPhone) ? `<button class="vcf-btn" onclick="downloadVcard()">⬇ vCard</button>` : ''}
   </div>
 </div>
 
@@ -1244,6 +1276,28 @@ li{margin-bottom:4px;font-size:13px;}
 <div id="files"      class="tab-pane">${filesHtml}</div>
 
 </div>
+
+<div class="print-bar"><button onclick="showPrintDlg()">⎙ Print</button></div>
+
+<div id="print-dlg" class="print-dlg" style="display:none" onclick="if(event.target===this)closePrintDlg()">
+  <div class="print-dlg-box">
+    <h3>Print options</h3>
+    <div class="print-dlg-sec">Sections to include</div>
+    <label><input type="checkbox" id="chk-personal"   checked> Personal</label>
+    <label><input type="checkbox" id="chk-employment" checked> Employment</label>
+    <label><input type="checkbox" id="chk-documents"  checked> Documents</label>
+    <label><input type="checkbox" id="chk-reviews"    checked> Reviews</label>
+    <label><input type="checkbox" id="chk-files"      checked> Files</label>
+    <hr>
+    <div class="print-dlg-sec">Remove from output</div>
+    <label><input type="checkbox" id="chk-no-photo"> Staff photo</label>
+    <label><input type="checkbox" id="chk-no-private"> Private info (address, personal contact, next of kin)</label>
+    <div class="print-dlg-btns">
+      <button onclick="closePrintDlg()">Cancel</button>
+      <button class="btn-print" onclick="doPrint()">Print</button>
+    </div>
+  </div>
+</div>
 <script>
 function showTab(id){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id===id));
@@ -1258,6 +1312,42 @@ function openLightbox(src){
   lb.appendChild(img);
   document.body.appendChild(lb);
   document.addEventListener('keydown',function h(e){if(e.key==='Escape'){lb.remove();document.removeEventListener('keydown',h);}});
+}
+function downloadVcard(){
+  const fn=${JSON.stringify(name)};
+  const parts=fn.split(' ');
+  const lines=['BEGIN:VCARD','VERSION:3.0','FN:'+fn,'N:'+(parts.slice(-1)[0]||'')+';'+(parts.slice(0,-1).join(' ')||'')+';;;'];
+  const org=${JSON.stringify(org)};if(org)lines.push('ORG:'+org);
+  const title=${JSON.stringify(e.currentRole||'')};if(title)lines.push('TITLE:'+title);
+  const we=${JSON.stringify(p.workEmail||'')};if(we)lines.push('EMAIL;TYPE=WORK:'+we);
+  const pe=${JSON.stringify(p.personalEmail||'')};if(pe)lines.push('EMAIL;TYPE=HOME:'+pe);
+  const wp=${JSON.stringify(p.workPhone||'')};if(wp)lines.push('TEL;TYPE=WORK:'+wp);
+  const pp=${JSON.stringify(p.personalPhone||'')};if(pp)lines.push('TEL;TYPE=HOME:'+pp);
+  const ad=${JSON.stringify(addr)};
+  if(ad.line1||ad.city)lines.push('ADR;TYPE=HOME:;;'+(ad.line1||'')+';'+(ad.city||'')+';'+(ad.province||'')+';'+(ad.postalCode||'')+';'+(ad.country||''));
+  lines.push('END:VCARD');
+  const blob=new Blob([lines.join('\r\n')],{type:'text/vcard;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const lnk=document.createElement('a');lnk.href=url;lnk.download=fn.replace(/\s+/g,'_')+'.vcf';
+  document.body.appendChild(lnk);lnk.click();document.body.removeChild(lnk);URL.revokeObjectURL(url);
+}
+function showPrintDlg(){document.getElementById('print-dlg').style.display='flex';}
+function closePrintDlg(){document.getElementById('print-dlg').style.display='none';}
+function doPrint(){
+  const b=document.body;
+  b.classList.toggle('no-photo',document.getElementById('chk-no-photo').checked);
+  b.classList.toggle('no-private',document.getElementById('chk-no-private').checked);
+  b.classList.toggle('no-pane-personal',!document.getElementById('chk-personal').checked);
+  b.classList.toggle('no-pane-employment',!document.getElementById('chk-employment').checked);
+  b.classList.toggle('no-pane-documents',!document.getElementById('chk-documents').checked);
+  b.classList.toggle('no-pane-reviews',!document.getElementById('chk-reviews').checked);
+  b.classList.toggle('no-pane-files',!document.getElementById('chk-files').checked);
+  closePrintDlg();
+  window.addEventListener('afterprint',function h(){
+    ['no-photo','no-private','no-pane-personal','no-pane-employment','no-pane-documents','no-pane-reviews','no-pane-files'].forEach(c=>b.classList.remove(c));
+    window.removeEventListener('afterprint',h);
+  });
+  window.print();
 }
 <\/script>
 <script type="application/json" id="staff-data">
