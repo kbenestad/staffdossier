@@ -128,6 +128,9 @@
   border-radius: var(--radius-sm); border: 1px solid var(--border);
   display: block;
 }
+.staffdossier-crop-rot {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+}
 
 /* ── Span full cols ─────────────────────────────────────────────── */
 .col-span-2 { grid-column: 1 / -1; }
@@ -751,12 +754,19 @@ function openCropperWithSrc(src, mode, docIdx) {
   const img = new Image();
   img.onload = () => {
     const MAX_W = 680, MAX_H = 500;
-    let cw = img.naturalWidth, ch = img.naturalHeight;
-    if (cw > MAX_W) { ch = Math.round(ch * MAX_W / cw); cw = MAX_W; }
-    if (ch > MAX_H) { cw = Math.round(cw * MAX_H / ch); ch = MAX_H; }
+    let cw, ch, scaleX, scaleY;
+    let rotationDeg = 0;
 
-    const scaleX = img.naturalWidth / cw;
-    const scaleY = img.naturalHeight / ch;
+    function updateSize() {
+      const rad = rotationDeg * Math.PI / 180;
+      const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      const rw = nw * cos + nh * sin, rh = nw * sin + nh * cos;
+      const s = Math.min(MAX_W / rw, MAX_H / rh, 1);
+      cw = Math.round(rw * s); ch = Math.round(rh * s);
+      scaleX = rw / cw; scaleY = rh / ch;
+    }
+    updateSize();
 
     const canvas = el('canvas', { className: 'staffdossier-crop-canvas', width: cw, height: ch });
     const ctx = canvas.getContext('2d');
@@ -766,7 +776,12 @@ function openCropperWithSrc(src, mode, docIdx) {
 
     function draw() {
       ctx.clearRect(0, 0, cw, ch);
-      ctx.drawImage(img, 0, 0, cw, ch);
+      ctx.save();
+      ctx.translate(cw / 2, ch / 2);
+      ctx.rotate(rotationDeg * Math.PI / 180);
+      ctx.drawImage(img, -img.naturalWidth / scaleX / 2, -img.naturalHeight / scaleY / 2,
+        img.naturalWidth / scaleX, img.naturalHeight / scaleY);
+      ctx.restore();
       ctx.beginPath();
       ctx.rect(0, 0, cw, ch);
       ctx.rect(crop.x, crop.y, crop.w, crop.h);
@@ -851,12 +866,29 @@ function openCropperWithSrc(src, mode, docIdx) {
     canvas.addEventListener('mouseup', onUp);
     canvas.addEventListener('touchend', onUp);
 
+    function doRotate(delta) {
+      drag = null;
+      rotationDeg = ((rotationDeg + delta) % 360 + 360) % 360;
+      updateSize();
+      canvas.width = cw; canvas.height = ch;
+      crop = fitCrop(cw, ch, aspect);
+      draw();
+    }
+
     const overlay = el('div', { className: 'kb-overlay' });
     const modal   = el('div', { className: 'kb-modal staffdossier-crop-modal' });
     const hdr     = el('div', { className: 'kb-modal__hdr' });
     hdr.appendChild(el('span', null, title));
     const body = el('div', { className: 'kb-modal__body staffdossier-crop-wrap' });
     body.appendChild(canvas);
+    const rotRow = el('div', { className: 'staffdossier-crop-rot' });
+    rotRow.append(
+      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-90) }, S('crop-rotate-ccw-90')),
+      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(90)  }, S('crop-rotate-cw-90')),
+      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-1)  }, S('crop-rotate-ccw-1')),
+      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(1)   }, S('crop-rotate-cw-1')),
+    );
+    body.appendChild(rotRow);
     const footer = el('div', { className: 'kb-modal__footer' });
     let resolved = false;
     function cleanup() { overlay.remove(); document.removeEventListener('keydown', onKey); }
@@ -864,11 +896,22 @@ function openCropperWithSrc(src, mode, docIdx) {
       if (resolved) return; resolved = true;
       cleanup();
       if (result !== 'confirm') return;
+      const rad = rotationDeg * Math.PI / 180;
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      const cos = Math.abs(Math.cos(rad)), sin = Math.abs(Math.sin(rad));
+      const rotW = Math.round(nw * cos + nh * sin);
+      const rotH = Math.round(nw * sin + nh * cos);
+      const rotCanvas = document.createElement('canvas');
+      rotCanvas.width = rotW; rotCanvas.height = rotH;
+      const rotCtx = rotCanvas.getContext('2d');
+      rotCtx.translate(rotW / 2, rotH / 2);
+      rotCtx.rotate(rad);
+      rotCtx.drawImage(img, -nw / 2, -nh / 2);
       const sx = crop.x * scaleX, sy = crop.y * scaleY;
       const sw = crop.w * scaleX, sh = crop.h * scaleY;
       const off = document.createElement('canvas');
       off.width = Math.round(sw); off.height = Math.round(sh);
-      off.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, off.width, off.height);
+      off.getContext('2d').drawImage(rotCanvas, sx, sy, sw, sh, 0, 0, off.width, off.height);
       const dataUrl = off.toDataURL('image/jpeg', 0.85);
       if (mode === 'photo') {
         state.personal.photo = dataUrl;
