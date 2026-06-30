@@ -86,7 +86,7 @@ document-types:
     warning-months: 3
   - id: passport
     label: "Passport"
-    aspect-ratio: [125, 88]
+    aspect-ratio: [88, 125]
     warning-months: 6
   - id: work_permit
     label: "Work Permit"
@@ -139,8 +139,10 @@ localisation:
 
       section-personal: Personal Information
       field-name: Full name
-      field-email: Email
-      field-phone: Phone
+      field-work-email: Work email
+      field-work-phone: Work phone
+      field-personal-email: Personal email
+      field-personal-phone: Personal phone
       field-photo: Staff photo
       btn-upload-photo: Upload photo
       btn-crop-photo: Crop photo
@@ -173,7 +175,6 @@ localisation:
 
       section-employment: Employment at CAP
       field-hire-date: Hire date
-      field-probation-end: Probation end date
       field-contract-type: Contract type
       field-current-role: Current role
       field-eligible-rehire: Eligible for rehire
