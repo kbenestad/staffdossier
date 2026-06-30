@@ -998,7 +998,7 @@ function buildOutputHtml() {
   const name = p.name || 'Staff';
 
   const photoHtml = p.photo
-    ? `<div class="hdr-photo"><img src="${p.photo}" alt="Staff photo"></div>`
+    ? `<div class="hdr-photo" onclick="openLightbox(this.querySelector('img').src)" style="cursor:zoom-in"><img src="${p.photo}" alt="Staff photo"></div>`
     : '';
 
   const addr = p.address && typeof p.address === 'object' ? p.address : {};
@@ -1089,14 +1089,15 @@ function buildOutputHtml() {
       <span class="doc-name">${esc(doc.type || 'Document')}</span>
       <span class="validity validity-${esc(cls)}">${esc(text)}</span>
     </div>
-    <table>`;
+    <div class="doc-body">
+      <table>`;
     if (doc.number)         documentsHtml += `<tr><th>Number</th><td>${esc(doc.number)}</td></tr>`;
     if (doc.issueDate)      documentsHtml += `<tr><th>Issue date</th><td>${esc(formatDate(doc.issueDate))}</td></tr>`;
     if (doc.issueAuthority) documentsHtml += `<tr><th>Issuing authority</th><td>${esc(doc.issueAuthority)}</td></tr>`;
     if (doc.expiryDate)     documentsHtml += `<tr><th>Expiry date</th><td>${esc(formatDate(doc.expiryDate))}</td></tr>`;
     documentsHtml += `</table>`;
-    if (doc.scan) documentsHtml += `<img class="doc-scan" src="${doc.scan}" alt="Document scan">`;
-    documentsHtml += `</div>`;
+    if (doc.scan) documentsHtml += `<img class="doc-thumb" src="${doc.scan}" alt="Document scan" onclick="openLightbox(this.src)">`;
+    documentsHtml += `</div></div>`;
   });
   if (!documentsHtml) documentsHtml = `<p class="empty">No documents recorded.</p>`;
 
@@ -1187,7 +1188,9 @@ tr:last-child th,tr:last-child td{border-bottom:none;}
 .validity-warn{background:var(--warn-bg);color:var(--warn-fg);}
 .validity-exp {background:var(--exp-bg);color:var(--exp-fg);}
 .validity-none{background:var(--none-bg);color:var(--none-fg);}
-.doc-scan{max-width:100%;border-radius:4px;margin-top:12px;border:1px solid var(--border);display:block;}
+.doc-body{display:flex;gap:16px;align-items:flex-start;}
+.doc-body table{flex:1;min-width:0;}
+.doc-thumb{width:110px;flex-shrink:0;border-radius:4px;border:1px solid var(--border);cursor:zoom-in;display:block;}
 /* Accordion */
 .accordion{border-top:1px solid var(--border);}
 details{border-bottom:1px solid var(--border);}
@@ -1205,6 +1208,8 @@ a:hover{text-decoration:underline;}
 ul{margin:4px 0;padding-left:20px;}
 li{margin-bottom:4px;font-size:13px;}
 .empty{color:var(--muted);font-size:13px;padding:4px 0;}
+#lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:9999;cursor:zoom-out;}
+#lb img{max-width:min(90vw,900px);max-height:90vh;border-radius:6px;box-shadow:0 8px 40px rgba(0,0,0,.5);object-fit:contain;}
 </style>
 </head>
 <body>
@@ -1243,6 +1248,16 @@ li{margin-bottom:4px;font-size:13px;}
 function showTab(id){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+}
+function openLightbox(src){
+  const lb=document.createElement('div');
+  lb.id='lb';
+  lb.onclick=()=>lb.remove();
+  const img=document.createElement('img');
+  img.src=src;
+  lb.appendChild(img);
+  document.body.appendChild(lb);
+  document.addEventListener('keydown',function h(e){if(e.key==='Escape'){lb.remove();document.removeEventListener('keydown',h);}});
 }
 <\/script>
 <script type="application/json" id="staff-data">
