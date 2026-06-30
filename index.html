@@ -1,99 +1,185 @@
 <!DOCTYPE html>
-<!--
-  ════════════════════════════════════════════════════════════════════════════
-  basis — STANDALONE STARTER (shares the bizdocs look, NOT part of the series).
-
-  Unlike _template/ (which links the monorepo's ../assets/), this app is
-  self-contained: it bundles its own copy of the shared design + runtime in
-  ./assets/. Those three files (style.css, ui.css, app.js) are kept
-  BYTE-IDENTICAL to bizdocs' shared assets so a bizdocs UI change can be dropped
-  straight in — see ./README.md and ./sync.sh.
-
-  To build a real app from this folder:
-    1. Set <title>, the doc-title <h1>, and the 'basis-lang' localStorage key.
-    2. Replace buildExampleCard() with your form (use kb-* components) and
-       onDownload() with your real PDF (use pdf-lib).
-    3. Fill in config.yml: keep the header keys; add ui: strings to EVERY
-       language block; route all copy through S().
-    4. Drop a real favicon / PWA icon set into ./assets/.
-  Don't hand-rewrite the chrome (head, toolbar, header, footer) — keeping it as
-  shipped is what keeps the app pixel-identical to bizdocs.
-  ════════════════════════════════════════════════════════════════════════════
--->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="format-detection" content="telephone=no">
-<title>Basis</title>
+<title>Staff Dossier</title>
 
-<!-- Favicons / PWA. Drop a full icon set into assets/ for a real app. -->
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="assets/site.webmanifest">
 <meta name="theme-color" content="#2f6fed">
 
-<!-- Restore persisted theme BEFORE first paint (avoids a flash). Keep this. -->
 <script>
   (function(){var t=localStorage.getItem('kb-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();
 </script>
 
-<!-- CDN libraries: js-yaml (all apps) + pdf-lib (PDF output; new apps use pdf-lib). -->
-<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="https://unpkg.com/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
 
-<!-- Shared design + runtime — LOCAL copies (self-contained / standalone).
-     Kept byte-identical to bizdocs assets/. app.js MUST load before the inline <script>. -->
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/ui.css">
 <script src="assets/app.js"></script>
 
-<!-- App-specific styles ONLY (the shared look lives in assets/*.css).
-     Put column grids / bespoke layout here; empty is fine to start. -->
 <style>
-/* e.g. .basis-row { display:grid; grid-template-columns: 1fr 1fr auto; gap:8px; } */
+/* ── Tab navigation ─────────────────────────────────────────────── */
+.staffdossier-tabs {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+.staffdossier-tab {
+  padding: 9px 18px; font: 600 var(--fs-small)/1 var(--font-sans);
+  color: var(--text-muted); background: none; border: none;
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  cursor: pointer; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  white-space: nowrap; transition: color .12s;
+}
+.staffdossier-tab:hover { color: var(--text); }
+.staffdossier-tab.is-active {
+  color: var(--accent); border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+}
+.staffdossier-tab-content > div { display: none; }
+.staffdossier-tab-content > div.is-active { display: block; }
+
+/* ── Action row above tabs ──────────────────────────────────────── */
+.staffdossier-top-actions {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 16px; flex-wrap: wrap;
+}
+
+/* ── Photo preview ──────────────────────────────────────────────── */
+.staffdossier-photo-area {
+  display: flex; align-items: flex-start; gap: 16px;
+  margin-bottom: 16px;
+}
+.staffdossier-photo-preview {
+  width: 88px; height: 113px; /* 35:45 ratio ≈ 3.5×4.5 cm at screen scale */
+  border: 2px dashed var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface-3); display: flex; align-items: center;
+  justify-content: center; overflow: hidden; flex-shrink: 0;
+}
+.staffdossier-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.staffdossier-photo-preview .placeholder {
+  font-size: 11px; color: var(--text-muted); text-align: center; padding: 8px;
+}
+.staffdossier-photo-btns { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Scan preview ───────────────────────────────────────────────── */
+.staffdossier-scan-preview {
+  width: 100%; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); overflow: hidden; margin-top: 8px;
+}
+.staffdossier-scan-preview img { width: 100%; display: block; }
+
+/* ── Repeating rows ─────────────────────────────────────────────── */
+.staffdossier-repeating-row {
+  display: flex; gap: 8px; align-items: flex-end;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.staffdossier-repeating-row:last-of-type { border-bottom: none; }
+.staffdossier-repeating-row .kb-grid { flex: 1; }
+.staffdossier-repeating-row .rm-btn { margin-bottom: 2px; flex-shrink: 0; }
+.staffdossier-add-row { margin-top: 10px; }
+
+/* ── Validity badge ─────────────────────────────────────────────── */
+.staffdossier-validity {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--radius-pill);
+  font-size: var(--fs-small); font-weight: 700; margin: 6px 0 10px;
+}
+.staffdossier-validity--ok {
+  background: var(--success-soft); border: 1px solid var(--success-border);
+  color: var(--success);
+}
+.staffdossier-validity--warn {
+  background: var(--warning-soft); border: 1px solid var(--warning-border);
+  color: var(--warning);
+}
+.staffdossier-validity--expired {
+  background: var(--danger-soft); border: 1px solid var(--danger-border);
+  color: var(--danger);
+}
+.staffdossier-validity--none {
+  background: var(--surface-3); border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
+/* ── Document entry card header ─────────────────────────────────── */
+.staffdossier-doc-header {
+  display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px;
+}
+.staffdossier-doc-header .kb-field { flex: 1; }
+
+/* ── Cropper modal ──────────────────────────────────────────────── */
+.staffdossier-crop-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 4px 0;
+}
+.staffdossier-crop-canvas {
+  max-width: 100%; cursor: crosshair; touch-action: none;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+  display: block;
+}
+
+/* ── Span full cols ─────────────────────────────────────────────── */
+.col-span-2 { grid-column: 1 / -1; }
 </style>
 </head>
 <body>
 <div id="app"><p class="kb-loading">Loading configuration…</p></div>
 
+<!-- Hidden file inputs -->
+<input type="file" id="photo-file-input" accept="image/*" style="display:none">
+<input type="file" id="scan-file-input" accept="image/*" style="display:none">
+<input type="file" id="load-file-input" accept=".html" style="display:none">
+
 <script>
 (async function () {
 'use strict';
-/* This script is wrapped in an IIFE, so its top-level functions are NOT
- * globals — they cannot collide with app.js. Helpers from app.js ($, el,
- * makeSizeControl, kbAbout, lookupString, …) are visible in here. */
 
-let CFG;          // parsed config.yml
-let lang = 'en';  // active UI language
+let CFG;
+let lang = 'en';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let state = emptyState();
+
+function emptyState() {
+  return {
+    personal: {
+      name: '', email: '', phone: '', address: '',
+      photo: null,
+      education: [],
+      workHistory: [],
+      emergencyContact: { name: '', relationship: '', phone: '' }
+    },
+    employment: {
+      hireDate: '', probationEnd: '', contractType: '',
+      currentRole: '', roleHistory: [],
+      terminationDate: '', terminationReason: '',
+      eligibleForRehire: ''
+    },
+    documents: [],
+    reviews: [],
+    documentLinks: []
+  };
+}
 
 // ── i18n ───────────────────────────────────────────────────────────────────
-// One string lookup, delegating to the shared lookupString(). Never hardcode
-// user-facing text — add a key to every language's `ui:` block and use S().
 function S(key, vars) {
   return lookupString(CFG['ui-strings'], key, lang, CFG['default-code'], vars);
 }
 
-// Guard against a successful fetch that returns the WRONG bytes. On a static
-// host a missing config.yml (or an SPA fallback / stale HTML cache) is served
-// as an HTML page with a 200, so jsyaml.load() returns a plain string instead
-// of the config object. Without this check CFG.localisation is undefined,
-// normaliseConfig() early-returns, and the app renders its chrome with every
-// label showing as a raw key and an empty language dropdown — no error at all.
-// Fail loudly and actionably instead. (Kept in the inline boot, NOT app.js,
-// which must stay byte-identical across apps.)
 function assertValidConfig(cfg) {
-  if (!cfg || typeof cfg !== 'object' || !cfg.localisation) {
+  if (!cfg || typeof cfg !== 'object' || !cfg.localisation)
     throw new Error(
       'config.yml loaded but did not parse to a valid configuration. The server ' +
       'most likely returned an HTML page (a 404 or single-page-app fallback, or a ' +
       'stale cached page) instead of the YAML file. Confirm config.yml is deployed ' +
       'next to index.html and served as plain text (not rewritten to index.html).'
     );
-  }
 }
 
-// Flatten localisation[lang].ui → ui-strings[key][lang] using the shared core.
-// Add your own data-specific maps (currencies, codes, …) after this.
 function normaliseConfig() {
   const loc = CFG && CFG.localisation;
   if (!loc) return;
@@ -103,7 +189,6 @@ function normaliseConfig() {
   CFG['ui-strings'] = table;
 }
 
-// Copy the active language's About block onto flat fields the modal reads.
 function applyLang(lc) {
   lang = lc;
   const loc = CFG.localisation || {};
@@ -117,6 +202,963 @@ function showAboutModal() {
   return kbAbout({ title: CFG['about-title'], contentMD: CFG['about-content'], closeLabel: CFG['about-button'] });
 }
 
+// ── DOM helpers ────────────────────────────────────────────────────────────
+function field(label, input, opts) {
+  const f = el('div', { className: 'kb-field' + (opts && opts.full ? ' col-span-2' : '') });
+  f.append(el('span', { className: 'kb-label' }, label), input);
+  return f;
+}
+
+function mkInput(attrs) {
+  return el('input', Object.assign({ className: 'kb-input' }, attrs));
+}
+
+function mkSelect(options, value, onChange) {
+  const sel = el('select', { className: 'kb-select' });
+  const blank = el('option', { value: '' }, '');
+  sel.appendChild(blank);
+  options.forEach(opt => {
+    const o = el('option', { value: opt }, opt);
+    if (opt === value) o.selected = true;
+    sel.appendChild(o);
+  });
+  if (onChange) sel.addEventListener('change', onChange);
+  return sel;
+}
+
+function mkTextarea(attrs) {
+  return el('textarea', Object.assign({ className: 'kb-textarea' }, attrs));
+}
+
+function circRm(onClick) {
+  const b = el('button', { type: 'button', className: 'kb-circbtn kb-circbtn--rm rm-btn', title: S('btn-remove'), onClick });
+  b.textContent = '×';
+  return b;
+}
+
+function addRowBtn(label, onClick) {
+  return el('button', { type: 'button', className: 'kb-btn kb-btn--dashed kb-btn--sm staffdossier-add-row', onClick }, label);
+}
+
+// ── Tab builder ────────────────────────────────────────────────────────────
+function makeTabs(tabs) {
+  // tabs: [{ label, build }]
+  const strip = el('div', { className: 'staffdossier-tabs' });
+  const content = el('div', { className: 'staffdossier-tab-content' });
+  const panes = tabs.map(t => {
+    const pane = el('div');
+    content.appendChild(pane);
+    return pane;
+  });
+  tabs.forEach((t, i) => {
+    const btn = el('button', { type: 'button', className: 'staffdossier-tab' + (i === 0 ? ' is-active' : '') }, t.label);
+    btn.addEventListener('click', () => {
+      strip.querySelectorAll('.staffdossier-tab').forEach((b, j) => {
+        b.classList.toggle('is-active', j === i);
+        panes[j].classList.toggle('is-active', j === i);
+      });
+      if (!panes[i]._built) {
+        panes[i]._built = true;
+        panes[i].appendChild(t.build());
+      }
+    });
+    strip.appendChild(btn);
+  });
+  // Build first tab immediately
+  panes[0]._built = true;
+  panes[0].appendChild(tabs[0].build());
+  panes[0].classList.add('is-active');
+  const wrap = el('div');
+  wrap.append(strip, content);
+  return wrap;
+}
+
+// ── Validity helper ────────────────────────────────────────────────────────
+function validityBadge(expiryDate, warningMonths) {
+  const badge = el('div');
+  if (!expiryDate) {
+    badge.className = 'staffdossier-validity staffdossier-validity--none';
+    badge.textContent = S('no-expiry');
+    return badge;
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(expiryDate + 'T00:00:00');
+  const warnMs = (warningMonths || 3) * 30.44 * 86400000;
+  if (exp < today) {
+    badge.className = 'staffdossier-validity staffdossier-validity--expired';
+    badge.textContent = S('label-expired') + ' — ' + formatDate(expiryDate);
+  } else if (exp - today < warnMs) {
+    badge.className = 'staffdossier-validity staffdossier-validity--warn';
+    badge.textContent = S('label-expiring-soon') + ' — ' + formatDate(expiryDate);
+  } else {
+    badge.className = 'staffdossier-validity staffdossier-validity--ok';
+    badge.textContent = S('label-expires') + ' ' + formatDate(expiryDate);
+  }
+  return badge;
+}
+
+// ── Personal tab ───────────────────────────────────────────────────────────
+function buildPersonalTab() {
+  const wrap = el('div');
+
+  // Photo
+  const photoCard = el('div', { className: 'kb-card' });
+  photoCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-personal')));
+
+  const photoArea = el('div', { className: 'staffdossier-photo-area' });
+  const preview = el('div', { className: 'staffdossier-photo-preview', id: 'photo-preview-box' });
+  if (state.personal.photo) {
+    preview.appendChild(el('img', { src: state.personal.photo, alt: '' }));
+  } else {
+    preview.appendChild(el('span', { className: 'placeholder' }, S('field-photo')));
+  }
+  const photoBtns = el('div', { className: 'staffdossier-photo-btns' });
+  if (state.personal.photo) {
+    photoBtns.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
+      onClick: () => openCropper('photo') }, S('btn-crop-photo')));
+  } else {
+    photoBtns.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
+      onClick: () => document.getElementById('photo-file-input').click() }, S('btn-upload-photo')));
+  }
+  photoArea.append(preview, photoBtns);
+  photoCard.appendChild(photoArea);
+
+  // Personal fields
+  const grid = el('div', { className: 'kb-grid cols-2' });
+  const nameIn = mkInput({ value: state.personal.name, placeholder: S('field-name') });
+  nameIn.addEventListener('input', e => { state.personal.name = e.target.value; });
+  grid.appendChild(field(S('field-name'), nameIn, { full: true }));
+
+  const emailIn = mkInput({ type: 'email', value: state.personal.email });
+  emailIn.addEventListener('input', e => { state.personal.email = e.target.value; });
+  grid.appendChild(field(S('field-email'), emailIn));
+
+  const phoneIn = mkInput({ type: 'tel', value: state.personal.phone });
+  phoneIn.addEventListener('input', e => { state.personal.phone = e.target.value; });
+  grid.appendChild(field(S('field-phone'), phoneIn));
+
+  const addrIn = mkTextarea({ rows: 2 });
+  addrIn.value = state.personal.address;
+  addrIn.addEventListener('input', e => { state.personal.address = e.target.value; });
+  grid.appendChild(field(S('field-address'), addrIn, { full: true }));
+
+  photoCard.appendChild(grid);
+  wrap.appendChild(photoCard);
+
+  // Education
+  wrap.appendChild(buildEducationCard());
+
+  // Work history
+  wrap.appendChild(buildWorkHistoryCard());
+
+  // Emergency contact
+  wrap.appendChild(buildEmergencyCard());
+
+  return wrap;
+}
+
+function buildEducationCard() {
+  const card = el('div', { className: 'kb-card' });
+  card.appendChild(el('div', { className: 'kb-card__title' }, S('section-education')));
+  const rows = el('div', { id: 'education-rows' });
+  state.personal.education.forEach((e, i) => rows.appendChild(buildEducationRow(i)));
+  card.appendChild(rows);
+  card.appendChild(addRowBtn(S('btn-add-education'), () => {
+    state.personal.education.push({ institution: '', qualification: '', year: '' });
+    rows.appendChild(buildEducationRow(state.personal.education.length - 1));
+  }));
+  return card;
+}
+
+function buildEducationRow(i) {
+  const row = el('div', { className: 'staffdossier-repeating-row', 'data-edu-idx': i });
+  const grid = el('div', { className: 'kb-grid cols-3' });
+  const instIn = mkInput({ value: state.personal.education[i].institution, placeholder: S('field-institution') });
+  instIn.addEventListener('input', e => { state.personal.education[i].institution = e.target.value; });
+  const qualIn = mkInput({ value: state.personal.education[i].qualification, placeholder: S('field-qualification') });
+  qualIn.addEventListener('input', e => { state.personal.education[i].qualification = e.target.value; });
+  const yearIn = mkInput({ value: state.personal.education[i].year, placeholder: S('field-year'), style: { width: '80px' } });
+  yearIn.addEventListener('input', e => { state.personal.education[i].year = e.target.value; });
+  grid.append(
+    field(S('field-institution'), instIn),
+    field(S('field-qualification'), qualIn),
+    field(S('field-year'), yearIn)
+  );
+  row.append(grid, circRm(() => {
+    state.personal.education.splice(i, 1);
+    row.remove();
+    // re-index remaining rows
+    document.querySelectorAll('[data-edu-idx]').forEach((r, j) => r.setAttribute('data-edu-idx', j));
+  }));
+  return row;
+}
+
+function buildWorkHistoryCard() {
+  const card = el('div', { className: 'kb-card' });
+  card.appendChild(el('div', { className: 'kb-card__title' }, S('section-workhistory')));
+  const rows = el('div', { id: 'workhistory-rows' });
+  state.personal.workHistory.forEach((_, i) => rows.appendChild(buildWorkHistoryRow(i)));
+  card.appendChild(rows);
+  card.appendChild(addRowBtn(S('btn-add-workhistory'), () => {
+    state.personal.workHistory.push({ employer: '', role: '', from: '', to: '' });
+    rows.appendChild(buildWorkHistoryRow(state.personal.workHistory.length - 1));
+  }));
+  return card;
+}
+
+function buildWorkHistoryRow(i) {
+  const row = el('div', { className: 'staffdossier-repeating-row', 'data-wh-idx': i });
+  const grid = el('div', { className: 'kb-grid cols-4' });
+  const empIn = mkInput({ value: state.personal.workHistory[i].employer });
+  empIn.addEventListener('input', e => { state.personal.workHistory[i].employer = e.target.value; });
+  const roleIn = mkInput({ value: state.personal.workHistory[i].role });
+  roleIn.addEventListener('input', e => { state.personal.workHistory[i].role = e.target.value; });
+  const fromIn = mkInput({ type: 'date', value: state.personal.workHistory[i].from });
+  fromIn.addEventListener('input', e => { state.personal.workHistory[i].from = e.target.value; });
+  const toIn = mkInput({ type: 'date', value: state.personal.workHistory[i].to });
+  toIn.addEventListener('input', e => { state.personal.workHistory[i].to = e.target.value; });
+  grid.append(
+    field(S('field-employer'), empIn),
+    field(S('field-role'), roleIn),
+    field(S('field-from'), fromIn),
+    field(S('field-to'), toIn)
+  );
+  row.append(grid, circRm(() => {
+    state.personal.workHistory.splice(i, 1);
+    row.remove();
+  }));
+  return row;
+}
+
+function buildEmergencyCard() {
+  const card = el('div', { className: 'kb-card' });
+  card.appendChild(el('div', { className: 'kb-card__title' }, S('section-emergency')));
+  const grid = el('div', { className: 'kb-grid cols-3' });
+  const nameIn = mkInput({ value: state.personal.emergencyContact.name });
+  nameIn.addEventListener('input', e => { state.personal.emergencyContact.name = e.target.value; });
+  const relIn = mkInput({ value: state.personal.emergencyContact.relationship });
+  relIn.addEventListener('input', e => { state.personal.emergencyContact.relationship = e.target.value; });
+  const phoneIn = mkInput({ type: 'tel', value: state.personal.emergencyContact.phone });
+  phoneIn.addEventListener('input', e => { state.personal.emergencyContact.phone = e.target.value; });
+  grid.append(
+    field(S('field-ec-name'), nameIn),
+    field(S('field-ec-relationship'), relIn),
+    field(S('field-ec-phone'), phoneIn)
+  );
+  card.appendChild(grid);
+  return card;
+}
+
+// ── Employment tab ─────────────────────────────────────────────────────────
+function buildEmploymentTab() {
+  const wrap = el('div');
+
+  const empCard = el('div', { className: 'kb-card' });
+  empCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-employment')));
+  const grid = el('div', { className: 'kb-grid cols-2' });
+
+  const hireDateIn = mkInput({ type: 'date', value: state.employment.hireDate });
+  hireDateIn.addEventListener('input', e => { state.employment.hireDate = e.target.value; });
+  grid.appendChild(field(S('field-hire-date'), hireDateIn));
+
+  const probIn = mkInput({ type: 'date', value: state.employment.probationEnd });
+  probIn.addEventListener('input', e => { state.employment.probationEnd = e.target.value; });
+  grid.appendChild(field(S('field-probation-end'), probIn));
+
+  const contractSel = mkSelect(CFG['contract-types'] || [], state.employment.contractType,
+    e => { state.employment.contractType = e.target.value; });
+  grid.appendChild(field(S('field-contract-type'), contractSel));
+
+  const roleSel = mkSelect(CFG['roles'] || [], state.employment.currentRole,
+    e => { state.employment.currentRole = e.target.value; });
+  grid.appendChild(field(S('field-current-role'), roleSel));
+
+  const rehireSel = mkSelect(['Yes', 'No'], state.employment.eligibleForRehire,
+    e => { state.employment.eligibleForRehire = e.target.value; });
+  grid.appendChild(field(S('field-eligible-rehire'), rehireSel));
+
+  empCard.appendChild(grid);
+  wrap.appendChild(empCard);
+
+  // Role history
+  const roleHistCard = el('div', { className: 'kb-card' });
+  roleHistCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-role-history')));
+  const roleRows = el('div', { id: 'role-history-rows' });
+  state.employment.roleHistory.forEach((_, i) => roleRows.appendChild(buildRoleHistoryRow(i)));
+  roleHistCard.appendChild(roleRows);
+  roleHistCard.appendChild(addRowBtn(S('btn-add-role'), () => {
+    state.employment.roleHistory.push({ role: '', from: '', to: '' });
+    roleRows.appendChild(buildRoleHistoryRow(state.employment.roleHistory.length - 1));
+  }));
+  wrap.appendChild(roleHistCard);
+
+  // Termination
+  const termCard = el('div', { className: 'kb-card' });
+  termCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-termination')));
+  const termGrid = el('div', { className: 'kb-grid cols-2' });
+  const termDateIn = mkInput({ type: 'date', value: state.employment.terminationDate });
+  termDateIn.addEventListener('input', e => { state.employment.terminationDate = e.target.value; });
+  termGrid.appendChild(field(S('field-termination-date'), termDateIn));
+  const termReasonIn = mkTextarea({ rows: 3, placeholder: S('ph-termination-reason') });
+  termReasonIn.value = state.employment.terminationReason;
+  termReasonIn.addEventListener('input', e => { state.employment.terminationReason = e.target.value; });
+  termGrid.appendChild(field(S('field-termination-reason'), termReasonIn, { full: true }));
+  termCard.appendChild(termGrid);
+  wrap.appendChild(termCard);
+
+  return wrap;
+}
+
+function buildRoleHistoryRow(i) {
+  const row = el('div', { className: 'staffdossier-repeating-row' });
+  const grid = el('div', { className: 'kb-grid cols-3' });
+  const roleSel = mkSelect(CFG['roles'] || [], state.employment.roleHistory[i].role,
+    e => { state.employment.roleHistory[i].role = e.target.value; });
+  const fromIn = mkInput({ type: 'date', value: state.employment.roleHistory[i].from });
+  fromIn.addEventListener('input', e => { state.employment.roleHistory[i].from = e.target.value; });
+  const toIn = mkInput({ type: 'date', value: state.employment.roleHistory[i].to });
+  toIn.addEventListener('input', e => { state.employment.roleHistory[i].to = e.target.value; });
+  grid.append(
+    field(S('field-current-role'), roleSel),
+    field(S('field-role-from'), fromIn),
+    field(S('field-role-to'), toIn)
+  );
+  row.append(grid, circRm(() => {
+    state.employment.roleHistory.splice(i, 1);
+    row.remove();
+  }));
+  return row;
+}
+
+// ── Documents tab ──────────────────────────────────────────────────────────
+function buildDocumentsTab() {
+  const wrap = el('div');
+  const docsContainer = el('div', { id: 'docs-container' });
+  state.documents.forEach((_, i) => docsContainer.appendChild(buildDocumentEntry(i)));
+  wrap.appendChild(docsContainer);
+  wrap.appendChild(addRowBtn(S('btn-add-document'), () => {
+    state.documents.push({ type: '', number: '', issueDate: '', issueAuthority: '', expiryDate: '', scan: null });
+    docsContainer.appendChild(buildDocumentEntry(state.documents.length - 1));
+  }));
+  return wrap;
+}
+
+function buildDocumentEntry(i) {
+  const card = el('div', { className: 'kb-card', 'data-doc-idx': i });
+  const docTypes = (CFG['document-types'] || []).map(d => d.label);
+
+  // Header: type selector + remove
+  const hdr = el('div', { className: 'staffdossier-doc-header' });
+  const typeSel = mkSelect(docTypes, state.documents[i].type, e => {
+    state.documents[i].type = e.target.value;
+    refreshValidityBadge(card, i);
+  });
+  hdr.append(field(S('field-doc-type'), typeSel), circRm(() => {
+    state.documents.splice(i, 1);
+    card.remove();
+  }));
+  card.appendChild(hdr);
+
+  // Validity badge
+  const badgeWrap = el('div', { className: 'validity-wrap' });
+  badgeWrap.appendChild(validityBadge(state.documents[i].expiryDate, getWarningMonths(state.documents[i].type)));
+  card.appendChild(badgeWrap);
+
+  // Fields
+  const grid = el('div', { className: 'kb-grid cols-2' });
+  const numIn = mkInput({ value: state.documents[i].number });
+  numIn.addEventListener('input', e => { state.documents[i].number = e.target.value; });
+  grid.appendChild(field(S('field-doc-number'), numIn));
+
+  const issueDateIn = mkInput({ type: 'date', value: state.documents[i].issueDate });
+  issueDateIn.addEventListener('input', e => { state.documents[i].issueDate = e.target.value; });
+  grid.appendChild(field(S('field-doc-issue-date'), issueDateIn));
+
+  const authIn = mkInput({ value: state.documents[i].issueAuthority });
+  authIn.addEventListener('input', e => { state.documents[i].issueAuthority = e.target.value; });
+  grid.appendChild(field(S('field-doc-issue-authority'), authIn));
+
+  const expiryIn = mkInput({ type: 'date', value: state.documents[i].expiryDate });
+  expiryIn.addEventListener('input', e => {
+    state.documents[i].expiryDate = e.target.value;
+    refreshValidityBadge(card, i);
+  });
+  grid.appendChild(field(S('field-doc-expiry'), expiryIn));
+  card.appendChild(grid);
+
+  // Scan area
+  const scanArea = el('div', { className: 'scan-area', id: 'scan-area-' + i });
+  refreshScanArea(scanArea, i);
+  card.appendChild(scanArea);
+
+  return card;
+}
+
+function getWarningMonths(typeLabel) {
+  const dt = (CFG['document-types'] || []).find(d => d.label === typeLabel);
+  return dt ? (dt['warning-months'] || 3) : 3;
+}
+
+function refreshValidityBadge(card, i) {
+  const wrap = card.querySelector('.validity-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  wrap.appendChild(validityBadge(state.documents[i].expiryDate, getWarningMonths(state.documents[i].type)));
+}
+
+function refreshScanArea(scanArea, i) {
+  scanArea.innerHTML = '';
+  if (state.documents[i].scan) {
+    const preview = el('div', { className: 'staffdossier-scan-preview' });
+    preview.appendChild(el('img', { src: state.documents[i].scan, alt: '' }));
+    scanArea.appendChild(preview);
+    scanArea.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
+      style: { marginTop: '8px' },
+      onClick: () => openCropper('document', i) }, S('btn-crop-scan')));
+  } else {
+    scanArea.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
+      onClick: () => {
+        _pendingScanIdx = i;
+        document.getElementById('scan-file-input').click();
+      } }, S('btn-upload-scan')));
+  }
+}
+
+// ── Reviews tab ────────────────────────────────────────────────────────────
+function buildReviewsTab() {
+  const wrap = el('div');
+  const container = el('div', { id: 'reviews-container' });
+  const sorted = [...state.reviews].map((r, i) => ({ r, i })).sort((a, b) => {
+    if (!a.r.date) return 1; if (!b.r.date) return -1;
+    return b.r.date.localeCompare(a.r.date);
+  });
+  sorted.forEach(({ i }) => container.appendChild(buildReviewEntry(i)));
+  wrap.appendChild(container);
+  wrap.appendChild(addRowBtn(S('btn-add-review'), () => {
+    state.reviews.push({ date: '', venue: '', reviewers: '', outcome: '', narrative: '', link: '' });
+    const newI = state.reviews.length - 1;
+    container.prepend(buildReviewEntry(newI));
+  }));
+  return wrap;
+}
+
+function buildReviewEntry(i) {
+  const card = el('div', { className: 'kb-card', 'data-review-idx': i });
+  const hdr = el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' } });
+  hdr.appendChild(circRm(() => {
+    state.reviews.splice(i, 1);
+    card.remove();
+  }));
+  card.appendChild(hdr);
+
+  const grid = el('div', { className: 'kb-grid cols-2' });
+
+  const dateIn = mkInput({ type: 'date', value: state.reviews[i].date });
+  dateIn.addEventListener('input', e => { state.reviews[i].date = e.target.value; });
+  grid.appendChild(field(S('field-review-date'), dateIn));
+
+  const venueIn = mkInput({ value: state.reviews[i].venue });
+  venueIn.addEventListener('input', e => { state.reviews[i].venue = e.target.value; });
+  grid.appendChild(field(S('field-review-venue'), venueIn));
+
+  const reviewersIn = mkInput({ value: state.reviews[i].reviewers, placeholder: S('ph-review-reviewers') });
+  reviewersIn.addEventListener('input', e => { state.reviews[i].reviewers = e.target.value; });
+  grid.appendChild(field(S('field-review-reviewers'), reviewersIn));
+
+  const outcomeSel = mkSelect(CFG['review-outcomes'] || [], state.reviews[i].outcome,
+    e => { state.reviews[i].outcome = e.target.value; });
+  grid.appendChild(field(S('field-review-outcome'), outcomeSel));
+
+  const narrativeIn = mkTextarea({ rows: 4, placeholder: S('ph-review-narrative') });
+  narrativeIn.value = state.reviews[i].narrative;
+  narrativeIn.addEventListener('input', e => { state.reviews[i].narrative = e.target.value; });
+  grid.appendChild(field(S('field-review-narrative'), narrativeIn, { full: true }));
+
+  const linkIn = mkInput({ value: state.reviews[i].link, placeholder: S('ph-review-link') });
+  linkIn.addEventListener('input', e => { state.reviews[i].link = e.target.value; });
+  grid.appendChild(field(S('field-review-link'), linkIn, { full: true }));
+
+  card.appendChild(grid);
+  return card;
+}
+
+// ── Files tab ──────────────────────────────────────────────────────────────
+function buildFilesTab() {
+  const wrap = el('div');
+  const card = el('div', { className: 'kb-card' });
+  card.appendChild(el('div', { className: 'kb-card__title' }, S('section-files')));
+  const rows = el('div', { id: 'files-rows' });
+  state.documentLinks.forEach((_, i) => rows.appendChild(buildFileRow(i)));
+  card.appendChild(rows);
+  card.appendChild(addRowBtn(S('btn-add-file'), () => {
+    state.documentLinks.push({ label: '', url: '' });
+    rows.appendChild(buildFileRow(state.documentLinks.length - 1));
+  }));
+  wrap.appendChild(card);
+  return wrap;
+}
+
+function buildFileRow(i) {
+  const row = el('div', { className: 'staffdossier-repeating-row' });
+  const grid = el('div', { className: 'kb-grid cols-2' });
+  const labelIn = mkInput({ value: state.documentLinks[i].label, placeholder: S('ph-file-label') });
+  labelIn.addEventListener('input', e => { state.documentLinks[i].label = e.target.value; });
+  const urlIn = mkInput({ value: state.documentLinks[i].url, placeholder: S('ph-file-url') });
+  urlIn.addEventListener('input', e => { state.documentLinks[i].url = e.target.value; });
+  grid.append(field(S('field-file-label'), labelIn), field(S('field-file-url'), urlIn));
+  row.append(grid, circRm(() => {
+    state.documentLinks.splice(i, 1);
+    row.remove();
+  }));
+  return row;
+}
+
+// ── Cropper ────────────────────────────────────────────────────────────────
+let _pendingScanIdx = null;
+
+document.getElementById('photo-file-input').addEventListener('change', function() {
+  const f = this.files[0];
+  if (f) openCropperWithFile(f, 'photo', null);
+  this.value = '';
+});
+document.getElementById('scan-file-input').addEventListener('change', function() {
+  const f = this.files[0];
+  if (f) openCropperWithFile(f, 'document', _pendingScanIdx);
+  this.value = '';
+});
+
+function getCropAspect(mode) {
+  if (mode === 'photo') {
+    const [w, h] = CFG['photo-aspect-ratio'] || [35, 45];
+    return w / h;
+  }
+  // mode === 'document' — use currently selected type for whichever doc is pending
+  // This is called from openCropper(mode, docIdx)
+  return 85.6 / 54; // default
+}
+
+function getDocAspect(docIdx) {
+  if (docIdx == null) return 85.6 / 54;
+  const typeLabel = state.documents[docIdx] && state.documents[docIdx].type;
+  const dt = (CFG['document-types'] || []).find(d => d.label === typeLabel);
+  if (dt && dt['aspect-ratio']) {
+    const [w, h] = dt['aspect-ratio'];
+    return w / h;
+  }
+  return 85.6 / 54;
+}
+
+function openCropper(mode, docIdx) {
+  // Re-open cropper for existing image
+  const src = mode === 'photo' ? state.personal.photo : (state.documents[docIdx] && state.documents[docIdx].scan);
+  if (!src) return;
+  openCropperWithSrc(src, mode, docIdx);
+}
+
+function openCropperWithFile(file, mode, docIdx) {
+  const reader = new FileReader();
+  reader.onload = e => openCropperWithSrc(e.target.result, mode, docIdx);
+  reader.readAsDataURL(file);
+}
+
+function openCropperWithSrc(src, mode, docIdx) {
+  const aspect = mode === 'photo' ? (()=>{ const [w,h]=CFG['photo-aspect-ratio']||[35,45]; return w/h; })()
+                                  : getDocAspect(docIdx);
+  const title = mode === 'photo' ? S('crop-title-photo') : S('crop-title-doc');
+
+  const img = new Image();
+  img.onload = () => {
+    const MAX = 520;
+    let cw = img.naturalWidth, ch = img.naturalHeight;
+    if (cw > MAX) { ch = Math.round(ch * MAX / cw); cw = MAX; }
+    if (ch > 400) { cw = Math.round(cw * 400 / ch); ch = 400; }
+
+    const canvas = el('canvas', { className: 'staffdossier-crop-canvas', width: cw, height: ch });
+    const ctx = canvas.getContext('2d');
+
+    // Initial crop rectangle
+    let crop = fitCrop(cw, ch, aspect);
+    let drag = null;
+
+    function draw() {
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      // Dim outside crop
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.clearRect(crop.x, crop.y, crop.w, crop.h);
+      ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, crop.x, crop.y, crop.w, crop.h);
+      // Border
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
+      // Corner handles
+      const hs = 8;
+      [[crop.x, crop.y],[crop.x+crop.w, crop.y],[crop.x, crop.y+crop.h],[crop.x+crop.w, crop.y+crop.h]].forEach(([hx,hy]) => {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(hx - hs/2, hy - hs/2, hs, hs);
+      });
+    }
+    draw();
+
+    function hitTest(mx, my) {
+      const hs = 10;
+      const corners = [
+        { name: 'nw', x: crop.x,        y: crop.y },
+        { name: 'ne', x: crop.x+crop.w, y: crop.y },
+        { name: 'sw', x: crop.x,        y: crop.y+crop.h },
+        { name: 'se', x: crop.x+crop.w, y: crop.y+crop.h },
+      ];
+      for (const c of corners) {
+        if (Math.abs(mx - c.x) < hs && Math.abs(my - c.y) < hs) return { type: 'corner', name: c.name };
+      }
+      if (mx > crop.x && mx < crop.x+crop.w && my > crop.y && my < crop.y+crop.h)
+        return { type: 'move' };
+      return null;
+    }
+
+    function ptFromEvent(e) {
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches ? e.touches[0] : e;
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const pt = ptFromEvent(e);
+      const hit = hitTest(pt.x, pt.y);
+      if (hit) { drag = { hit, startPt: pt, startCrop: { ...crop } }; e.preventDefault(); }
+    });
+    canvas.addEventListener('touchstart', e => {
+      const pt = ptFromEvent(e);
+      const hit = hitTest(pt.x, pt.y);
+      if (hit) { drag = { hit, startPt: pt, startCrop: { ...crop } }; e.preventDefault(); }
+    }, { passive: false });
+
+    function onMove(e) {
+      if (!drag) return;
+      const pt = ptFromEvent(e);
+      const dx = pt.x - drag.startPt.x, dy = pt.y - drag.startPt.y;
+      const sc = drag.startCrop;
+      if (drag.hit.type === 'move') {
+        crop.x = Math.max(0, Math.min(cw - crop.w, sc.x + dx));
+        crop.y = Math.max(0, Math.min(ch - crop.h, sc.y + dy));
+      } else {
+        let nx = sc.x, ny = sc.y, nw = sc.w, nh = sc.h;
+        const n = drag.hit.name;
+        if (n === 'nw') { nx = sc.x + dx; nw = sc.w - dx; ny = sc.y + dy; nh = sc.h - dy; }
+        if (n === 'ne') { nw = sc.w + dx; ny = sc.y + dy; nh = sc.h - dy; }
+        if (n === 'sw') { nx = sc.x + dx; nw = sc.w - dx; nh = sc.h + dy; }
+        if (n === 'se') { nw = sc.w + dx; nh = sc.h + dy; }
+        // Enforce aspect ratio from the dominant axis
+        if (nw < 20) nw = 20;
+        if (nw / aspect < 20) nw = 20 * aspect;
+        nh = nw / aspect;
+        // Clamp
+        nx = Math.max(0, Math.min(cw - nw, nx));
+        ny = Math.max(0, Math.min(ch - nh, ny));
+        nw = Math.min(cw - nx, nw);
+        nh = nw / aspect;
+        if (ny + nh > ch) { nh = ch - ny; nw = nh * aspect; }
+        crop = { x: nx, y: ny, w: nw, h: nh };
+      }
+      draw();
+    }
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('touchmove', onMove, { passive: false });
+    function onUp() { drag = null; }
+    canvas.addEventListener('mouseup', onUp);
+    canvas.addEventListener('touchend', onUp);
+
+    const bodyNode = el('div', { className: 'kb-modal__body staffdossier-crop-wrap' });
+    bodyNode.appendChild(canvas);
+
+    kbModal({
+      title,
+      bodyNode,
+      buttons: [
+        { label: S('crop-cancel'), value: 'cancel', variant: 'kb-btn--ghost' },
+        { label: S('crop-confirm'), value: 'confirm', variant: 'kb-btn--primary', autofocus: true },
+      ],
+      dismissable: true,
+      dismissValue: 'cancel',
+    }).then(result => {
+      if (result !== 'confirm') return;
+      // Export crop
+      const off = document.createElement('canvas');
+      off.width = Math.round(crop.w); off.height = Math.round(crop.h);
+      off.getContext('2d').drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, off.width, off.height);
+      const dataUrl = off.toDataURL('image/jpeg', 0.85);
+      if (mode === 'photo') {
+        state.personal.photo = dataUrl;
+        // Update preview in DOM without full re-render
+        const box = document.getElementById('photo-preview-box');
+        if (box) {
+          box.innerHTML = '';
+          box.appendChild(el('img', { src: dataUrl, alt: '' }));
+        }
+        const btns = box && box.nextElementSibling;
+        if (btns) {
+          btns.innerHTML = '';
+          btns.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
+            onClick: () => openCropper('photo') }, S('btn-crop-photo')));
+        }
+      } else {
+        state.documents[docIdx].scan = dataUrl;
+        const scanArea = document.getElementById('scan-area-' + docIdx);
+        if (scanArea) refreshScanArea(scanArea, docIdx);
+      }
+    });
+  };
+  img.src = src;
+}
+
+function fitCrop(cw, ch, aspect) {
+  let w = cw, h = cw / aspect;
+  if (h > ch) { h = ch; w = ch * aspect; }
+  return { x: (cw - w) / 2, y: (ch - h) / 2, w, h };
+}
+
+// ── Download (HTML output) ─────────────────────────────────────────────────
+function onDownload() {
+  const name = state.personal.name;
+  const slug = name ? name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : 'staff';
+  const filename = slug + '-dossier.html';
+
+  const html = buildOutputHtml();
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: filename });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function docValidityHtml(doc) {
+  if (!doc.expiryDate) return `<span class="badge badge-none">No expiry date</span>`;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const exp = new Date(doc.expiryDate + 'T00:00:00');
+  const warnMs = getWarningMonths(doc.type) * 30.44 * 86400000;
+  const d = formatDate(doc.expiryDate);
+  if (exp < today) return `<span class="badge badge-expired">EXPIRED</span>`;
+  if (exp - today < warnMs) return `<span class="badge badge-warn">Expires ${esc(d)}</span>`;
+  return `<span class="badge badge-ok">Valid until ${esc(d)}</span>`;
+}
+
+function buildOutputHtml() {
+  const p = state.personal;
+  const e = state.employment;
+  const org = CFG.organization || 'Center for Asylum Protection';
+  const titleName = p.name || 'Staff';
+
+  let sections = '';
+
+  // Personal
+  sections += `<section id="personal"><h2>Personal Information</h2><table>`;
+  if (p.name)  sections += `<tr><th>Full name</th><td>${esc(p.name)}</td></tr>`;
+  if (p.email) sections += `<tr><th>Email</th><td>${esc(p.email)}</td></tr>`;
+  if (p.phone) sections += `<tr><th>Phone</th><td>${esc(p.phone)}</td></tr>`;
+  if (p.address) sections += `<tr><th>Address</th><td>${esc(p.address)}</td></tr>`;
+  sections += `</table>`;
+  if (p.education && p.education.length) {
+    sections += `<h3>Education</h3><table><tr><th>Institution</th><th>Qualification</th><th>Year</th></tr>`;
+    p.education.forEach(ed => {
+      sections += `<tr><td>${esc(ed.institution)}</td><td>${esc(ed.qualification)}</td><td>${esc(ed.year)}</td></tr>`;
+    });
+    sections += `</table>`;
+  }
+  if (p.workHistory && p.workHistory.length) {
+    sections += `<h3>Prior Work History</h3><table><tr><th>Employer</th><th>Role</th><th>From</th><th>To</th></tr>`;
+    p.workHistory.forEach(w => {
+      sections += `<tr><td>${esc(w.employer)}</td><td>${esc(w.role)}</td><td>${esc(formatDate(w.from))}</td><td>${esc(formatDate(w.to))}</td></tr>`;
+    });
+    sections += `</table>`;
+  }
+  const ec = p.emergencyContact;
+  if (ec && (ec.name || ec.phone)) {
+    sections += `<h3>Emergency Contact</h3><table>`;
+    if (ec.name)         sections += `<tr><th>Name</th><td>${esc(ec.name)}</td></tr>`;
+    if (ec.relationship) sections += `<tr><th>Relationship</th><td>${esc(ec.relationship)}</td></tr>`;
+    if (ec.phone)        sections += `<tr><th>Phone</th><td>${esc(ec.phone)}</td></tr>`;
+    sections += `</table>`;
+  }
+  sections += `</section>`;
+
+  // Employment
+  sections += `<section id="employment"><h2>Employment at CAP</h2><table>`;
+  if (e.hireDate)       sections += `<tr><th>Hire date</th><td>${esc(formatDate(e.hireDate))}</td></tr>`;
+  if (e.probationEnd)   sections += `<tr><th>Probation end</th><td>${esc(formatDate(e.probationEnd))}</td></tr>`;
+  if (e.contractType)   sections += `<tr><th>Contract type</th><td>${esc(e.contractType)}</td></tr>`;
+  if (e.currentRole)    sections += `<tr><th>Current role</th><td>${esc(e.currentRole)}</td></tr>`;
+  if (e.eligibleForRehire) sections += `<tr><th>Eligible for rehire</th><td>${esc(e.eligibleForRehire)}</td></tr>`;
+  sections += `</table>`;
+  if (e.roleHistory && e.roleHistory.length) {
+    sections += `<h3>Role History</h3><table><tr><th>Role</th><th>From</th><th>To</th></tr>`;
+    e.roleHistory.forEach(r => {
+      sections += `<tr><td>${esc(r.role)}</td><td>${esc(formatDate(r.from))}</td><td>${esc(formatDate(r.to))}</td></tr>`;
+    });
+    sections += `</table>`;
+  }
+  if (e.terminationDate || e.terminationReason) {
+    sections += `<h3>Termination</h3><table>`;
+    if (e.terminationDate)   sections += `<tr><th>Date</th><td>${esc(formatDate(e.terminationDate))}</td></tr>`;
+    if (e.terminationReason) sections += `<tr><th>Reason</th><td>${esc(e.terminationReason)}</td></tr>`;
+    sections += `</table>`;
+  }
+  sections += `</section>`;
+
+  // Documents
+  if (state.documents.length) {
+    sections += `<section id="documents"><h2>Identity Documents</h2>`;
+    state.documents.forEach(doc => {
+      sections += `<div class="doc-entry">`;
+      sections += `<div class="doc-type">${esc(doc.type || 'Document')} ${docValidityHtml(doc)}</div>`;
+      sections += `<table>`;
+      if (doc.number)        sections += `<tr><th>Number</th><td>${esc(doc.number)}</td></tr>`;
+      if (doc.issueDate)     sections += `<tr><th>Issue date</th><td>${esc(formatDate(doc.issueDate))}</td></tr>`;
+      if (doc.issueAuthority) sections += `<tr><th>Issuing authority</th><td>${esc(doc.issueAuthority)}</td></tr>`;
+      if (doc.expiryDate)    sections += `<tr><th>Expiry date</th><td>${esc(formatDate(doc.expiryDate))}</td></tr>`;
+      sections += `</table>`;
+      if (doc.scan) sections += `<img class="doc-scan" src="${doc.scan}" alt="Document scan">`;
+      sections += `</div>`;
+    });
+    sections += `</section>`;
+  }
+
+  // Reviews
+  if (state.reviews.length) {
+    const sorted = [...state.reviews].sort((a, b) => {
+      if (!a.date) return 1; if (!b.date) return -1;
+      return b.date.localeCompare(a.date);
+    });
+    sections += `<section id="reviews"><h2>Performance Reviews</h2>`;
+    sorted.forEach(r => {
+      sections += `<div class="review-entry"><table>`;
+      if (r.date)      sections += `<tr><th>Date</th><td>${esc(formatDate(r.date))}</td></tr>`;
+      if (r.venue)     sections += `<tr><th>Venue</th><td>${esc(r.venue)}</td></tr>`;
+      if (r.reviewers) sections += `<tr><th>Reviewer(s)</th><td>${esc(r.reviewers)}</td></tr>`;
+      if (r.outcome)   sections += `<tr><th>Outcome</th><td>${esc(r.outcome)}</td></tr>`;
+      if (r.narrative) sections += `<tr><th>Narrative</th><td>${esc(r.narrative)}</td></tr>`;
+      if (r.link)      sections += `<tr><th>Record</th><td><a href="${esc(r.link)}">${esc(r.link)}</a></td></tr>`;
+      sections += `</table></div>`;
+    });
+    sections += `</section>`;
+  }
+
+  // Document links
+  if (state.documentLinks.length) {
+    sections += `<section id="files"><h2>Document Links</h2><ul>`;
+    state.documentLinks.forEach(f => {
+      if (f.url) sections += `<li><a href="${esc(f.url)}">${esc(f.label || f.url)}</a></li>`;
+      else if (f.label) sections += `<li>${esc(f.label)}</li>`;
+    });
+    sections += `</ul></section>`;
+  }
+
+  const photoHtml = p.photo ? `<div class="photo"><img src="${p.photo}" alt="Staff photo"></div>` : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${esc(titleName)} — Staff Dossier — ${esc(org)}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.6;
+    color: #1a1d21; background: #fff; margin: 0; padding: 24px; }
+  header { display: flex; gap: 20px; align-items: flex-start;
+    border-bottom: 2px solid #2f6fed; padding-bottom: 16px; margin-bottom: 24px; }
+  .photo { width: 88px; height: 113px; overflow: hidden; border-radius: 4px; flex-shrink: 0; }
+  .photo img { width: 100%; height: 100%; object-fit: cover; }
+  .identity h1 { margin: 0 0 4px; font-size: 22px; color: #2f6fed; }
+  .identity p { margin: 2px 0; color: #555; }
+  section { margin-bottom: 28px; }
+  h2 { font-size: 16px; font-weight: 700; color: #2f6fed;
+    border-bottom: 1px solid #e0e6f0; padding-bottom: 6px; margin: 0 0 12px; }
+  h3 { font-size: 14px; font-weight: 700; color: #333; margin: 16px 0 8px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th, td { text-align: left; padding: 6px 10px; font-size: 13px;
+    border-bottom: 1px solid #e8ecf0; }
+  th { font-weight: 600; color: #666; width: 180px; background: #f6f8fb; }
+  .doc-entry { border: 1px solid #dde3ed; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; }
+  .doc-type { font-weight: 700; font-size: 15px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .doc-scan { max-width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid #dde3ed; }
+  .review-entry { border: 1px solid #dde3ed; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .badge-ok      { background: #dcfce7; color: #166534; }
+  .badge-warn    { background: #fef9c3; color: #854d0e; }
+  .badge-expired { background: #fee2e2; color: #991b1b; }
+  .badge-none    { background: #f1f5f9; color: #64748b; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  a { color: #2f6fed; }
+  @media print {
+    body { padding: 0; }
+    .doc-scan { max-width: 50%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  ${photoHtml}
+  <div class="identity">
+    <h1>${esc(p.name || 'Staff')}</h1>
+    ${e.currentRole ? `<p>${esc(e.currentRole)}${e.contractType ? ' · ' + esc(e.contractType) : ''}</p>` : ''}
+    ${e.hireDate ? `<p>Hired: ${esc(formatDate(e.hireDate))}</p>` : ''}
+    ${e.terminationDate ? `<p>Terminated: ${esc(formatDate(e.terminationDate))}</p>` : ''}
+  </div>
+</header>
+${sections}
+<script type="application/json" id="staff-data">
+${JSON.stringify(state, null, 2)}
+<\/script>
+</body>
+</html>`;
+}
+
+// ── Load dossier ───────────────────────────────────────────────────────────
+document.getElementById('load-file-input').addEventListener('change', function() {
+  const f = this.files[0];
+  if (!f) return;
+  this.value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const html = e.target.result;
+    try {
+      const match = html.match(/<script[^>]+type="application\/json"[^>]+id="staff-data"[^>]*>([\s\S]*?)<\/script>/i);
+      if (!match) throw new Error('No staff-data block found in this file.');
+      const parsed = JSON.parse(match[1]);
+      if (!parsed || typeof parsed !== 'object') throw new Error('staff-data is not a valid JSON object.');
+      // Merge with empty state to fill missing keys
+      const fresh = emptyState();
+      state = deepMerge(fresh, parsed);
+      render();
+    } catch (err) {
+      kbAlert({ title: 'Cannot load dossier', message: err.message });
+    }
+  };
+  reader.readAsText(f);
+});
+
+function deepMerge(base, overlay) {
+  if (Array.isArray(base) && Array.isArray(overlay)) return overlay;
+  if (overlay === null || overlay === undefined) return base;
+  if (typeof overlay !== 'object' || typeof base !== 'object') return overlay;
+  const result = { ...base };
+  for (const k in overlay) {
+    if (Object.prototype.hasOwnProperty.call(overlay, k)) {
+      result[k] = (k in base && typeof base[k] === 'object' && base[k] !== null)
+        ? deepMerge(base[k], overlay[k])
+        : overlay[k];
+    }
+  }
+  return result;
+}
+
 // ── Render ─────────────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
@@ -125,26 +1167,47 @@ function render() {
 
   wrap.appendChild(buildToolbar());
   wrap.appendChild(buildHeader());
-  wrap.appendChild(buildExampleCard());   // ← replace this with your form
 
-  // Action row
-  const actions = el('div', { className: 'kb-actions' });
-  actions.append(
-    el('button', { className: 'kb-btn kb-btn--ghost' }, S('save')),
-    el('button', { className: 'kb-btn kb-btn--primary', onClick: onDownload }, S('download'))
+  // Top action row
+  const topActions = el('div', { className: 'staffdossier-top-actions' });
+  topActions.append(
+    el('button', { type: 'button', className: 'kb-btn kb-btn--ghost',
+      onClick: () => document.getElementById('load-file-input').click() }, S('load')),
+    el('button', { type: 'button', className: 'kb-btn kb-btn--ghost',
+      onClick: onNew }, S('new'))
   );
+  wrap.appendChild(topActions);
+
+  // Tabs
+  const tabs = [
+    { label: S('tab-personal'),   build: buildPersonalTab },
+    { label: S('tab-employment'), build: buildEmploymentTab },
+    { label: S('tab-documents'),  build: buildDocumentsTab },
+    { label: S('tab-reviews'),    build: buildReviewsTab },
+    { label: S('tab-files'),      build: buildFilesTab },
+  ];
+  wrap.appendChild(makeTabs(tabs));
+
+  // Bottom action row
+  const actions = el('div', { className: 'kb-actions', style: { marginTop: '20px' } });
+  actions.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--primary', onClick: onDownload }, S('save')));
   wrap.appendChild(actions);
 
   wrap.appendChild(buildFooter());
-
   app.appendChild(wrap);
-  updateThemeIcon();   // keep theme icons in sync after a (re)render
+  updateThemeIcon();
 }
 
-// Toolbar: language select · spacer · A−/A+ size · theme · about
+async function onNew() {
+  const ok = await kbConfirm({ message: S('confirm-new') });
+  if (!ok) return;
+  state = emptyState();
+  render();
+}
+
+// Toolbar
 function buildToolbar() {
   const toolbar = el('div', { className: 'kb-toolbar' });
-
   const langSel = el('select', { className: 'kb-select', 'aria-label': 'Language' });
   (CFG.languages || []).forEach(l => {
     const o = el('option', { value: l.code }, l.name || l.code);
@@ -153,10 +1216,9 @@ function buildToolbar() {
   });
   langSel.addEventListener('change', () => {
     applyLang(langSel.value);
-    localStorage.setItem('basis-lang', langSel.value);   // app-specific key
+    localStorage.setItem('staffdossier-lang', langSel.value);
     render();
   });
-
   const { seg: sizeSeg, label: szLabel } = makeSizeControl();
   toolbar.append(
     langSel,
@@ -168,45 +1230,21 @@ function buildToolbar() {
   return toolbar;
 }
 
-// Header: brand wordmark (kBenestad mark + org/tagline) + right-aligned title.
 function buildHeader() {
   const header = el('header', { className: 'kb-header' });
-
   const brand = el('div', { className: 'kb-brand' });
   const tile = el('span', { className: 'logo' }); tile.innerHTML = KB_BRAND_SVG;
   const org = el('span', { className: 'org' });
-  org.appendChild(document.createTextNode(CFG.organization || 'kbenestad/basis'));
+  org.appendChild(document.createTextNode(CFG.organization || 'Staff Dossier'));
   const small = el('small'); small.textContent = CFG.tagline || S('subtitle');
   org.appendChild(small);
   brand.append(tile, org);
-
   const title = el('div', { className: 'kb-doctitle' });
-  title.appendChild(el('h1', null, 'basis'));   // ← your app name (add an icon SVG if you like)
-
+  title.appendChild(el('h1', null, 'Staff Dossier'));
   header.append(brand, title);
   return header;
 }
 
-// Example content — DELETE and build your own cards/grids from kb-* components.
-function buildExampleCard() {
-  const card = el('div', { className: 'kb-card' });
-  card.appendChild(el('div', { className: 'kb-card__title' }, S('example-section')));
-  const grid = el('div', { className: 'kb-grid cols-2' });
-  grid.append(
-    field(S('field-name'), el('input', { className: 'kb-input', placeholder: S('ph-name') })),
-    field(S('field-date'), el('input', { className: 'kb-input', type: 'date' }))
-  );
-  card.appendChild(grid);
-  return card;
-}
-
-function field(label, input) {
-  const f = el('div', { className: 'kb-field' });
-  f.append(el('span', { className: 'kb-label' }, label), input);
-  return f;
-}
-
-// Footer: kBenestad mark · © · repo link · About.
 function buildFooter() {
   const sep = () => el('span', { className: 'sep' }, '·');
   const footer = el('footer', { className: 'kb-footer' });
@@ -220,27 +1258,14 @@ function buildFooter() {
   return footer;
 }
 
-// ── PDF output (pdf-lib) — minimal stub; build your real document here. ──────
-async function onDownload() {
-  const { PDFDocument, StandardFonts } = PDFLib;
-  const doc = await PDFDocument.create();
-  const page = doc.addPage();                 // A4 by default
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  page.drawText('basis', { x: 50, y: 790, size: 18, font });
-  const bytes = await doc.save();
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-  const a = el('a', { href: url, download: 'basis.pdf' }); a.click();
-  URL.revokeObjectURL(url);
-}
-
 // ── Boot ───────────────────────────────────────────────────────────────────
 try {
-  CFG = await loadYamlConfig();   // fetch + parse config.yml (shared helper)
-  assertValidConfig(CFG);         // guard: catch HTML-instead-of-YAML (see below)
+  CFG = await loadYamlConfig();
+  assertValidConfig(CFG);
   normaliseConfig();
-  applyAccent(CFG);               // apply config accent-colour to --accent
-  initFontScale();                // restore persisted text size
-  lang = localStorage.getItem('basis-lang') || CFG['default-code'] || 'en';
+  applyAccent(CFG);
+  initFontScale();
+  lang = localStorage.getItem('staffdossier-lang') || CFG['default-code'] || 'en';
   applyLang(lang);
   render();
 } catch (e) {

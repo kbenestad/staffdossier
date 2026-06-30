@@ -1,87 +1,163 @@
-# =============================================================================
-# basis — Configuration
-# =============================================================================
-# basis is the STANDALONE starter: it shares the bizdocs design system but is
-# self-contained (it bundles its own assets/) and is NOT part of the app series.
-# Copy this folder to start a standalone app, then rename and replace the marked
-# "app-specific" parts. The keys below are the standard bizdocs config header;
-# keep them and add your own (currencies, accounts, products, codes, …).
-
-# Organization
-organization:                # leave blank to show the kBenestad wordmark
-logo: no                     # yes|no — if yes, loads assets/logo.png or logo.jpg
-logo-maxwidth: 4             # cm — maximum logo width on the PDF
-tagline:                     # subtitle shown below the org name (falls back to ui.subtitle)
-
-# Page setup
-page-size: A4                # A4 or letter
-
-# PDF output language: "default" (first defined language) or "user-selected" (follow the UI)
+organization: Center for Asylum Protection
+tagline: Staff Dossier
+logo: no
+logo-maxwidth: 4
+page-size: A4
 output-language: default
-
-# Typography (PDF). Standard fonts: Helvetica, Times, Courier (+ Bold/Italic).
 font-body: Helvetica
 font-heading: Helvetica
 font-monospace: Courier
 font-size: 10
-
-# Branding — overrides the --accent token for this app
 accent-colour: "#2f6fed"
 
-# ── Localisation ──────────────────────────────────────────────────────────────
-# Every user-facing string lives here, under each language's `ui:` block, and is
-# looked up via S('key'). Use {token} placeholders for interpolation.
+photo-aspect-ratio: [35, 45]
+
+document-types:
+  - id: thai_id
+    label: "Thai ID Card"
+    aspect-ratio: [85.6, 54]
+    warning-months: 3
+  - id: passport
+    label: "Passport"
+    aspect-ratio: [125, 88]
+    warning-months: 6
+  - id: work_permit
+    label: "Work Permit"
+    aspect-ratio: [85.6, 54]
+    warning-months: 3
+
+contract-types:
+  - Full-time
+  - Part-time
+  - Consultant
+  - Interpreter
+
+roles:
+  - Legal Officer
+  - Protection Officer
+  - Administrative Officer
+  - Receptionist
+  - Interpreter
+  - Legal Director
+
+review-outcomes:
+  - Passed probation
+  - Satisfactory
+  - Performance concern
+  - Requires improvement
+  - Exceptional
+
 localisation:
   default-language: en
-
   languages:
     - code: en
       name: English
-    - code: de
-      name: Deutsch
 
   en:
     about:
-      title: "About"
-      button: "Close"
+      title: About
+      button: Close
       content: |
-        ### basis
-        A standalone starter that shares the **bizdocs** look and runtime, but
-        is self-contained (it bundles its own assets/) and lives outside the app
-        series. Toolbar, theme, text-size control, language switch, About modal
-        and footer are already wired up.
+        ### Staff Dossier
+        Creates, edits, and downloads staff dossier files for **Center for
+        Asylum Protection**. Each dossier is a self-contained HTML file that
+        embeds the staff record and any scanned identity documents.
 
-        Replace the example card with your own form and PDF output.
-
-        **Source:** [kbenestad/bizdocs](https://github.com/kbenestad/bizdocs)
+        Load an existing dossier to edit it; download to save a new version.
     ui:
-      subtitle: "Standalone starter"
-      example-section: "Example section"
-      field-name: "Name"
-      ph-name: "Full name"
-      field-date: "Date"
-      save: "Save"
-      download: "Download PDF"
+      subtitle: Staff record management
+      tab-personal: Personal
+      tab-employment: Employment
+      tab-documents: Documents
+      tab-reviews: Reviews
+      tab-files: Files
 
-  de:
-    about:
-      title: "Über"
-      button: "Schließen"
-      content: |
-        ### basis
-        Ein eigenständiges Grundgerüst, das Aussehen und Laufzeit von
-        **bizdocs** teilt, aber in sich geschlossen ist (eigene assets/) und
-        außerhalb der App-Serie liegt. Symbolleiste, Theme, Textgröße,
-        Sprachwahl, Über-Dialog und Fußzeile sind bereits eingebunden.
+      section-personal: Personal Information
+      field-name: Full name
+      field-email: Email
+      field-phone: Phone
+      field-address: Address
+      field-photo: Staff photo
+      btn-upload-photo: Upload photo
+      btn-crop-photo: Crop photo
 
-        Ersetzen Sie die Beispielkarte durch Ihr eigenes Formular und PDF.
+      section-education: Education
+      field-institution: Institution
+      field-qualification: Qualification / degree
+      field-year: Year
+      btn-add-education: Add education
+      btn-remove: Remove
 
-        **Quellcode:** [kbenestad/bizdocs](https://github.com/kbenestad/bizdocs)
-    ui:
-      subtitle: "Eigenständige Vorlage"
-      example-section: "Beispielabschnitt"
-      field-name: "Name"
-      ph-name: "Vollständiger Name"
-      field-date: "Datum"
-      save: "Speichern"
-      download: "PDF herunterladen"
+      section-workhistory: Prior work history
+      field-employer: Employer
+      field-role: Role
+      field-from: From
+      field-to: To
+      btn-add-workhistory: Add entry
+
+      section-emergency: Emergency contact / next of kin
+      field-ec-name: Name
+      field-ec-relationship: Relationship
+      field-ec-phone: Phone
+
+      section-employment: Employment at CAP
+      field-hire-date: Hire date
+      field-probation-end: Probation end date
+      field-contract-type: Contract type
+      field-current-role: Current role
+      field-eligible-rehire: Eligible for rehire
+
+      section-role-history: Role history
+      field-role-from: From
+      field-role-to: To
+      btn-add-role: Add role
+
+      section-termination: Termination
+      field-termination-date: Termination date
+      field-termination-reason: Reason
+      ph-termination-reason: Termination circumstances
+
+      section-documents: Identity documents
+      field-doc-type: Document type
+      field-doc-number: Document number
+      field-doc-issue-date: Issue date
+      field-doc-issue-authority: Issuing authority
+      field-doc-expiry: Expiry date
+      field-doc-scan: Document scan
+      btn-add-document: Add document
+      btn-upload-scan: Upload scan
+      btn-crop-scan: Crop scan
+      label-expires: Expires
+      label-expired: EXPIRED
+      label-expiring-soon: Expiring soon
+
+      section-reviews: Performance reviews
+      field-review-date: Date
+      field-review-venue: Venue
+      field-review-reviewers: Reviewer(s)
+      field-review-outcome: Outcome
+      field-review-narrative: Narrative
+      field-review-link: Link to review record
+      ph-review-reviewers: Names of reviewers present
+      ph-review-narrative: Summary of review discussion and outcomes
+      ph-review-link: URL or file path to review document
+      btn-add-review: Add review
+
+      section-files: Document links
+      field-file-label: Label
+      field-file-url: URL or path
+      ph-file-label: "e.g. Employment contract"
+      ph-file-url: "https:// or file path"
+      btn-add-file: Add link
+
+      load: Load dossier
+      save: Download dossier
+      new: New dossier
+      confirm-new: Clear all data and start a new dossier?
+
+      crop-title-photo: Crop staff photo
+      crop-title-doc: Crop document scan
+      crop-confirm: Use this crop
+      crop-cancel: Cancel
+
+      no-expiry: No expiry date set
