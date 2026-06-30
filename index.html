@@ -1326,9 +1326,9 @@ function downloadVcard(){
   const ad=${JSON.stringify(addr)};
   if(ad.line1||ad.city)lines.push('ADR;TYPE=HOME:;;'+(ad.line1||'')+';'+(ad.city||'')+';'+(ad.province||'')+';'+(ad.postalCode||'')+';'+(ad.country||''));
   lines.push('END:VCARD');
-  const blob=new Blob([lines.join('\r\n')],{type:'text/vcard;charset=utf-8'});
+  const blob=new Blob([lines.join('\\r\\n')],{type:'text/vcard;charset=utf-8'});
   const url=URL.createObjectURL(blob);
-  const lnk=document.createElement('a');lnk.href=url;lnk.download=fn.replace(/\s+/g,'_')+'.vcf';
+  const lnk=document.createElement('a');lnk.href=url;lnk.download=fn.replace(/\\s+/g,'_')+'.vcf';
   document.body.appendChild(lnk);lnk.click();document.body.removeChild(lnk);URL.revokeObjectURL(url);
 }
 function showPrintDlg(){document.getElementById('print-dlg').style.display='flex';}
