@@ -12,6 +12,73 @@ accent-colour: "#2f6fed"
 
 photo-aspect-ratio: [35, 45]
 
+countries:
+  - Afghanistan
+  - Australia
+  - Bangladesh
+  - Burundi
+  - Cambodia
+  - Cameroon
+  - Canada
+  - Central African Republic
+  - Chad
+  - China
+  - Colombia
+  - Congo (DRC)
+  - Congo (Republic)
+  - "Côte d'Ivoire"
+  - Egypt
+  - Eritrea
+  - Ethiopia
+  - France
+  - Germany
+  - Ghana
+  - India
+  - Indonesia
+  - Iran
+  - Iraq
+  - Japan
+  - Jordan
+  - Kenya
+  - Laos
+  - Lebanon
+  - Liberia
+  - Libya
+  - Malaysia
+  - Mali
+  - Mauritania
+  - Mongolia
+  - Morocco
+  - Mozambique
+  - Myanmar
+  - Nepal
+  - Niger
+  - Nigeria
+  - North Korea
+  - Pakistan
+  - Palestine
+  - Philippines
+  - Rwanda
+  - Sierra Leone
+  - Somalia
+  - South Africa
+  - South Korea
+  - South Sudan
+  - Sri Lanka
+  - Sudan
+  - Syria
+  - Tanzania
+  - Thailand
+  - Turkey
+  - Uganda
+  - Ukraine
+  - United Kingdom
+  - United States
+  - Venezuela
+  - Vietnam
+  - Yemen
+  - Zimbabwe
+
 document-types:
   - id: thai_id
     label: "Thai ID Card"
@@ -59,9 +126,7 @@ localisation:
       button: Close
       content: |
         ### Staff Dossier
-        Creates, edits, and downloads staff dossier files for **Center for
-        Asylum Protection**. Each dossier is a self-contained HTML file that
-        embeds the staff record and any scanned identity documents.
+        Creates, edits, and downloads staff dossier files for **Center for Asylum Protection**. Each dossier is a self-contained HTML file that embeds the staff record and any scanned identity documents.
 
         Load an existing dossier to edit it; download to save a new version.
     ui:
@@ -76,10 +141,15 @@ localisation:
       field-name: Full name
       field-email: Email
       field-phone: Phone
-      field-address: Address
       field-photo: Staff photo
       btn-upload-photo: Upload photo
       btn-crop-photo: Crop photo
+
+      field-address-line1: Street address
+      field-address-city: City
+      field-address-province: Province / State
+      field-address-postal: Postal code
+      field-address-country: Country
 
       section-education: Education
       field-institution: Institution
@@ -99,6 +169,7 @@ localisation:
       field-ec-name: Name
       field-ec-relationship: Relationship
       field-ec-phone: Phone
+      field-ec-email: Email
 
       section-employment: Employment at CAP
       field-hire-date: Hire date

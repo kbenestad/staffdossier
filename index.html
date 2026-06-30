@@ -42,11 +42,14 @@
 .staffdossier-tab-content > div { display: none; }
 .staffdossier-tab-content > div.is-active { display: block; }
 
-/* ── Action row above tabs ──────────────────────────────────────── */
+/* ── Action rows ────────────────────────────────────────────────── */
 .staffdossier-top-actions {
   display: flex; gap: 10px; align-items: center;
   margin-bottom: 16px; flex-wrap: wrap;
 }
+.staffdossier-top-actions .spacer { flex: 1; }
+/* Gap between bottom actions and footer */
+.kb-actions { margin-bottom: 24px; }
 
 /* ── Photo preview ──────────────────────────────────────────────── */
 .staffdossier-photo-area {
@@ -54,7 +57,7 @@
   margin-bottom: 16px;
 }
 .staffdossier-photo-preview {
-  width: 88px; height: 113px; /* 35:45 ratio ≈ 3.5×4.5 cm at screen scale */
+  width: 88px; height: 113px;
   border: 2px dashed var(--border-strong); border-radius: var(--radius-sm);
   background: var(--surface-3); display: flex; align-items: center;
   justify-content: center; overflow: hidden; flex-shrink: 0;
@@ -151,11 +154,12 @@ let state = emptyState();
 function emptyState() {
   return {
     personal: {
-      name: '', email: '', phone: '', address: '',
+      name: '', email: '', phone: '',
+      address: { line1: '', city: '', province: '', postalCode: '', country: '' },
       photo: null,
       education: [],
       workHistory: [],
-      emergencyContact: { name: '', relationship: '', phone: '' }
+      emergencyContact: { name: '', relationship: '', phone: '', email: '' }
     },
     employment: {
       hireDate: '', probationEnd: '', contractType: '',
@@ -219,8 +223,7 @@ function mkInput(attrs) {
 
 function mkSelect(options, value, onChange) {
   const sel = el('select', { className: 'kb-select' });
-  const blank = el('option', { value: '' }, '');
-  sel.appendChild(blank);
+  sel.appendChild(el('option', { value: '' }, ''));
   options.forEach(opt => {
     const o = el('option', { value: opt }, opt);
     if (opt === value) o.selected = true;
@@ -246,14 +249,9 @@ function addRowBtn(label, onClick) {
 
 // ── Tab builder ────────────────────────────────────────────────────────────
 function makeTabs(tabs) {
-  // tabs: [{ label, build }]
   const strip = el('div', { className: 'staffdossier-tabs' });
   const content = el('div', { className: 'staffdossier-tab-content' });
-  const panes = tabs.map(t => {
-    const pane = el('div');
-    content.appendChild(pane);
-    return pane;
-  });
+  const panes = tabs.map(() => { const p = el('div'); content.appendChild(p); return p; });
   tabs.forEach((t, i) => {
     const btn = el('button', { type: 'button', className: 'staffdossier-tab' + (i === 0 ? ' is-active' : '') }, t.label);
     btn.addEventListener('click', () => {
@@ -261,14 +259,10 @@ function makeTabs(tabs) {
         b.classList.toggle('is-active', j === i);
         panes[j].classList.toggle('is-active', j === i);
       });
-      if (!panes[i]._built) {
-        panes[i]._built = true;
-        panes[i].appendChild(t.build());
-      }
+      if (!panes[i]._built) { panes[i]._built = true; panes[i].appendChild(t.build()); }
     });
     strip.appendChild(btn);
   });
-  // Build first tab immediately
   panes[0]._built = true;
   panes[0].appendChild(tabs[0].build());
   panes[0].classList.add('is-active');
@@ -305,7 +299,7 @@ function validityBadge(expiryDate, warningMonths) {
 function buildPersonalTab() {
   const wrap = el('div');
 
-  // Photo
+  // Photo + Personal info card
   const photoCard = el('div', { className: 'kb-card' });
   photoCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-personal')));
 
@@ -327,8 +321,8 @@ function buildPersonalTab() {
   photoArea.append(preview, photoBtns);
   photoCard.appendChild(photoArea);
 
-  // Personal fields
   const grid = el('div', { className: 'kb-grid cols-2' });
+
   const nameIn = mkInput({ value: state.personal.name, placeholder: S('field-name') });
   nameIn.addEventListener('input', e => { state.personal.name = e.target.value; });
   grid.appendChild(field(S('field-name'), nameIn, { full: true }));
@@ -341,21 +335,33 @@ function buildPersonalTab() {
   phoneIn.addEventListener('input', e => { state.personal.phone = e.target.value; });
   grid.appendChild(field(S('field-phone'), phoneIn));
 
-  const addrIn = mkTextarea({ rows: 2 });
-  addrIn.value = state.personal.address;
-  addrIn.addEventListener('input', e => { state.personal.address = e.target.value; });
-  grid.appendChild(field(S('field-address'), addrIn, { full: true }));
+  // Address: 4 text fields + country dropdown
+  const addr = state.personal.address;
+  const line1In = mkInput({ value: addr.line1 });
+  line1In.addEventListener('input', e => { state.personal.address.line1 = e.target.value; });
+  grid.appendChild(field(S('field-address-line1'), line1In, { full: true }));
+
+  const cityIn = mkInput({ value: addr.city });
+  cityIn.addEventListener('input', e => { state.personal.address.city = e.target.value; });
+  grid.appendChild(field(S('field-address-city'), cityIn));
+
+  const provIn = mkInput({ value: addr.province });
+  provIn.addEventListener('input', e => { state.personal.address.province = e.target.value; });
+  grid.appendChild(field(S('field-address-province'), provIn));
+
+  const postalIn = mkInput({ value: addr.postalCode });
+  postalIn.addEventListener('input', e => { state.personal.address.postalCode = e.target.value; });
+  grid.appendChild(field(S('field-address-postal'), postalIn));
+
+  const countrySel = mkSelect(CFG['countries'] || [], addr.country,
+    e => { state.personal.address.country = e.target.value; });
+  grid.appendChild(field(S('field-address-country'), countrySel));
 
   photoCard.appendChild(grid);
   wrap.appendChild(photoCard);
 
-  // Education
   wrap.appendChild(buildEducationCard());
-
-  // Work history
   wrap.appendChild(buildWorkHistoryCard());
-
-  // Emergency contact
   wrap.appendChild(buildEmergencyCard());
 
   return wrap;
@@ -365,7 +371,7 @@ function buildEducationCard() {
   const card = el('div', { className: 'kb-card' });
   card.appendChild(el('div', { className: 'kb-card__title' }, S('section-education')));
   const rows = el('div', { id: 'education-rows' });
-  state.personal.education.forEach((e, i) => rows.appendChild(buildEducationRow(i)));
+  state.personal.education.forEach((_, i) => rows.appendChild(buildEducationRow(i)));
   card.appendChild(rows);
   card.appendChild(addRowBtn(S('btn-add-education'), () => {
     state.personal.education.push({ institution: '', qualification: '', year: '' });
@@ -375,25 +381,20 @@ function buildEducationCard() {
 }
 
 function buildEducationRow(i) {
-  const row = el('div', { className: 'staffdossier-repeating-row', 'data-edu-idx': i });
+  const row = el('div', { className: 'staffdossier-repeating-row' });
   const grid = el('div', { className: 'kb-grid cols-3' });
-  const instIn = mkInput({ value: state.personal.education[i].institution, placeholder: S('field-institution') });
+  const instIn = mkInput({ value: state.personal.education[i].institution });
   instIn.addEventListener('input', e => { state.personal.education[i].institution = e.target.value; });
-  const qualIn = mkInput({ value: state.personal.education[i].qualification, placeholder: S('field-qualification') });
+  const qualIn = mkInput({ value: state.personal.education[i].qualification });
   qualIn.addEventListener('input', e => { state.personal.education[i].qualification = e.target.value; });
-  const yearIn = mkInput({ value: state.personal.education[i].year, placeholder: S('field-year'), style: { width: '80px' } });
+  const yearIn = mkInput({ value: state.personal.education[i].year });
   yearIn.addEventListener('input', e => { state.personal.education[i].year = e.target.value; });
   grid.append(
     field(S('field-institution'), instIn),
     field(S('field-qualification'), qualIn),
     field(S('field-year'), yearIn)
   );
-  row.append(grid, circRm(() => {
-    state.personal.education.splice(i, 1);
-    row.remove();
-    // re-index remaining rows
-    document.querySelectorAll('[data-edu-idx]').forEach((r, j) => r.setAttribute('data-edu-idx', j));
-  }));
+  row.append(grid, circRm(() => { state.personal.education.splice(i, 1); row.remove(); }));
   return row;
 }
 
@@ -411,7 +412,7 @@ function buildWorkHistoryCard() {
 }
 
 function buildWorkHistoryRow(i) {
-  const row = el('div', { className: 'staffdossier-repeating-row', 'data-wh-idx': i });
+  const row = el('div', { className: 'staffdossier-repeating-row' });
   const grid = el('div', { className: 'kb-grid cols-4' });
   const empIn = mkInput({ value: state.personal.workHistory[i].employer });
   empIn.addEventListener('input', e => { state.personal.workHistory[i].employer = e.target.value; });
@@ -427,28 +428,32 @@ function buildWorkHistoryRow(i) {
     field(S('field-from'), fromIn),
     field(S('field-to'), toIn)
   );
-  row.append(grid, circRm(() => {
-    state.personal.workHistory.splice(i, 1);
-    row.remove();
-  }));
+  row.append(grid, circRm(() => { state.personal.workHistory.splice(i, 1); row.remove(); }));
   return row;
 }
 
 function buildEmergencyCard() {
   const card = el('div', { className: 'kb-card' });
   card.appendChild(el('div', { className: 'kb-card__title' }, S('section-emergency')));
-  const grid = el('div', { className: 'kb-grid cols-3' });
-  const nameIn = mkInput({ value: state.personal.emergencyContact.name });
-  nameIn.addEventListener('input', e => { state.personal.emergencyContact.name = e.target.value; });
-  const relIn = mkInput({ value: state.personal.emergencyContact.relationship });
-  relIn.addEventListener('input', e => { state.personal.emergencyContact.relationship = e.target.value; });
-  const phoneIn = mkInput({ type: 'tel', value: state.personal.emergencyContact.phone });
-  phoneIn.addEventListener('input', e => { state.personal.emergencyContact.phone = e.target.value; });
-  grid.append(
-    field(S('field-ec-name'), nameIn),
-    field(S('field-ec-relationship'), relIn),
-    field(S('field-ec-phone'), phoneIn)
-  );
+  const grid = el('div', { className: 'kb-grid cols-2' });
+  const ec = state.personal.emergencyContact;
+
+  const nameIn = mkInput({ value: ec.name });
+  nameIn.addEventListener('input', e => { ec.name = e.target.value; });
+  grid.appendChild(field(S('field-ec-name'), nameIn));
+
+  const relIn = mkInput({ value: ec.relationship });
+  relIn.addEventListener('input', e => { ec.relationship = e.target.value; });
+  grid.appendChild(field(S('field-ec-relationship'), relIn));
+
+  const phoneIn = mkInput({ type: 'tel', value: ec.phone });
+  phoneIn.addEventListener('input', e => { ec.phone = e.target.value; });
+  grid.appendChild(field(S('field-ec-phone'), phoneIn));
+
+  const emailIn = mkInput({ type: 'email', value: ec.email });
+  emailIn.addEventListener('input', e => { ec.email = e.target.value; });
+  grid.appendChild(field(S('field-ec-email'), emailIn));
+
   card.appendChild(grid);
   return card;
 }
@@ -484,7 +489,6 @@ function buildEmploymentTab() {
   empCard.appendChild(grid);
   wrap.appendChild(empCard);
 
-  // Role history
   const roleHistCard = el('div', { className: 'kb-card' });
   roleHistCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-role-history')));
   const roleRows = el('div', { id: 'role-history-rows' });
@@ -496,17 +500,19 @@ function buildEmploymentTab() {
   }));
   wrap.appendChild(roleHistCard);
 
-  // Termination
   const termCard = el('div', { className: 'kb-card' });
   termCard.appendChild(el('div', { className: 'kb-card__title' }, S('section-termination')));
   const termGrid = el('div', { className: 'kb-grid cols-2' });
+
   const termDateIn = mkInput({ type: 'date', value: state.employment.terminationDate });
   termDateIn.addEventListener('input', e => { state.employment.terminationDate = e.target.value; });
   termGrid.appendChild(field(S('field-termination-date'), termDateIn));
+
   const termReasonIn = mkTextarea({ rows: 3, placeholder: S('ph-termination-reason') });
   termReasonIn.value = state.employment.terminationReason;
   termReasonIn.addEventListener('input', e => { state.employment.terminationReason = e.target.value; });
   termGrid.appendChild(field(S('field-termination-reason'), termReasonIn, { full: true }));
+
   termCard.appendChild(termGrid);
   wrap.appendChild(termCard);
 
@@ -523,14 +529,11 @@ function buildRoleHistoryRow(i) {
   const toIn = mkInput({ type: 'date', value: state.employment.roleHistory[i].to });
   toIn.addEventListener('input', e => { state.employment.roleHistory[i].to = e.target.value; });
   grid.append(
-    field(S('field-current-role'), roleSel),
+    field(S('field-role'), roleSel),
     field(S('field-role-from'), fromIn),
     field(S('field-role-to'), toIn)
   );
-  row.append(grid, circRm(() => {
-    state.employment.roleHistory.splice(i, 1);
-    row.remove();
-  }));
+  row.append(grid, circRm(() => { state.employment.roleHistory.splice(i, 1); row.remove(); }));
   return row;
 }
 
@@ -551,7 +554,6 @@ function buildDocumentEntry(i) {
   const card = el('div', { className: 'kb-card', 'data-doc-idx': i });
   const docTypes = (CFG['document-types'] || []).map(d => d.label);
 
-  // Header: type selector + remove
   const hdr = el('div', { className: 'staffdossier-doc-header' });
   const typeSel = mkSelect(docTypes, state.documents[i].type, e => {
     state.documents[i].type = e.target.value;
@@ -563,13 +565,12 @@ function buildDocumentEntry(i) {
   }));
   card.appendChild(hdr);
 
-  // Validity badge
   const badgeWrap = el('div', { className: 'validity-wrap' });
   badgeWrap.appendChild(validityBadge(state.documents[i].expiryDate, getWarningMonths(state.documents[i].type)));
   card.appendChild(badgeWrap);
 
-  // Fields
   const grid = el('div', { className: 'kb-grid cols-2' });
+
   const numIn = mkInput({ value: state.documents[i].number });
   numIn.addEventListener('input', e => { state.documents[i].number = e.target.value; });
   grid.appendChild(field(S('field-doc-number'), numIn));
@@ -590,7 +591,6 @@ function buildDocumentEntry(i) {
   grid.appendChild(field(S('field-doc-expiry'), expiryIn));
   card.appendChild(grid);
 
-  // Scan area
   const scanArea = el('div', { className: 'scan-area', id: 'scan-area-' + i });
   refreshScanArea(scanArea, i);
   card.appendChild(scanArea);
@@ -621,10 +621,8 @@ function refreshScanArea(scanArea, i) {
       onClick: () => openCropper('document', i) }, S('btn-crop-scan')));
   } else {
     scanArea.appendChild(el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm',
-      onClick: () => {
-        _pendingScanIdx = i;
-        document.getElementById('scan-file-input').click();
-      } }, S('btn-upload-scan')));
+      onClick: () => { _pendingScanIdx = i; document.getElementById('scan-file-input').click(); } },
+      S('btn-upload-scan')));
   }
 }
 
@@ -640,8 +638,7 @@ function buildReviewsTab() {
   wrap.appendChild(container);
   wrap.appendChild(addRowBtn(S('btn-add-review'), () => {
     state.reviews.push({ date: '', venue: '', reviewers: '', outcome: '', narrative: '', link: '' });
-    const newI = state.reviews.length - 1;
-    container.prepend(buildReviewEntry(newI));
+    container.prepend(buildReviewEntry(state.reviews.length - 1));
   }));
   return wrap;
 }
@@ -649,10 +646,7 @@ function buildReviewsTab() {
 function buildReviewEntry(i) {
   const card = el('div', { className: 'kb-card', 'data-review-idx': i });
   const hdr = el('div', { style: { display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' } });
-  hdr.appendChild(circRm(() => {
-    state.reviews.splice(i, 1);
-    card.remove();
-  }));
+  hdr.appendChild(circRm(() => { state.reviews.splice(i, 1); card.remove(); }));
   card.appendChild(hdr);
 
   const grid = el('div', { className: 'kb-grid cols-2' });
@@ -710,10 +704,7 @@ function buildFileRow(i) {
   const urlIn = mkInput({ value: state.documentLinks[i].url, placeholder: S('ph-file-url') });
   urlIn.addEventListener('input', e => { state.documentLinks[i].url = e.target.value; });
   grid.append(field(S('field-file-label'), labelIn), field(S('field-file-url'), urlIn));
-  row.append(grid, circRm(() => {
-    state.documentLinks.splice(i, 1);
-    row.remove();
-  }));
+  row.append(grid, circRm(() => { state.documentLinks.splice(i, 1); row.remove(); }));
   return row;
 }
 
@@ -731,29 +722,15 @@ document.getElementById('scan-file-input').addEventListener('change', function()
   this.value = '';
 });
 
-function getCropAspect(mode) {
-  if (mode === 'photo') {
-    const [w, h] = CFG['photo-aspect-ratio'] || [35, 45];
-    return w / h;
-  }
-  // mode === 'document' — use currently selected type for whichever doc is pending
-  // This is called from openCropper(mode, docIdx)
-  return 85.6 / 54; // default
-}
-
 function getDocAspect(docIdx) {
   if (docIdx == null) return 85.6 / 54;
   const typeLabel = state.documents[docIdx] && state.documents[docIdx].type;
   const dt = (CFG['document-types'] || []).find(d => d.label === typeLabel);
-  if (dt && dt['aspect-ratio']) {
-    const [w, h] = dt['aspect-ratio'];
-    return w / h;
-  }
+  if (dt && dt['aspect-ratio']) { const [w, h] = dt['aspect-ratio']; return w / h; }
   return 85.6 / 54;
 }
 
 function openCropper(mode, docIdx) {
-  // Re-open cropper for existing image
   const src = mode === 'photo' ? state.personal.photo : (state.documents[docIdx] && state.documents[docIdx].scan);
   if (!src) return;
   openCropperWithSrc(src, mode, docIdx);
@@ -766,19 +743,18 @@ function openCropperWithFile(file, mode, docIdx) {
 }
 
 function openCropperWithSrc(src, mode, docIdx) {
-  const aspect = mode === 'photo' ? (()=>{ const [w,h]=CFG['photo-aspect-ratio']||[35,45]; return w/h; })()
-                                  : getDocAspect(docIdx);
+  const aspect = mode === 'photo'
+    ? (()=>{ const [w,h]=CFG['photo-aspect-ratio']||[35,45]; return w/h; })()
+    : getDocAspect(docIdx);
   const title = mode === 'photo' ? S('crop-title-photo') : S('crop-title-doc');
 
   const img = new Image();
   img.onload = () => {
-    // Scale image to canvas coordinate space (fits within 680×500)
     const MAX_W = 680, MAX_H = 500;
     let cw = img.naturalWidth, ch = img.naturalHeight;
     if (cw > MAX_W) { ch = Math.round(ch * MAX_W / cw); cw = MAX_W; }
     if (ch > MAX_H) { cw = Math.round(cw * MAX_H / ch); ch = MAX_H; }
 
-    // Scale factors from canvas coords back to original image pixels
     const scaleX = img.naturalWidth / cw;
     const scaleY = img.naturalHeight / ch;
 
@@ -791,18 +767,14 @@ function openCropperWithSrc(src, mode, docIdx) {
     function draw() {
       ctx.clearRect(0, 0, cw, ch);
       ctx.drawImage(img, 0, 0, cw, ch);
-      // Punch a hole in the dark overlay using evenodd winding — no
-      // source-coordinate arithmetic needed, avoids the "wrong region" bug.
       ctx.beginPath();
       ctx.rect(0, 0, cw, ch);
       ctx.rect(crop.x, crop.y, crop.w, crop.h);
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fill('evenodd');
-      // Border
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2;
       ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
-      // Corner handles
       const hs = 8;
       ctx.fillStyle = '#fff';
       [[crop.x, crop.y],[crop.x+crop.w, crop.y],[crop.x, crop.y+crop.h],[crop.x+crop.w, crop.y+crop.h]].forEach(([hx,hy]) => {
@@ -822,12 +794,10 @@ function openCropperWithSrc(src, mode, docIdx) {
       for (const c of corners) {
         if (Math.abs(mx - c.x) < hs && Math.abs(my - c.y) < hs) return { type: 'corner', name: c.name };
       }
-      if (mx > crop.x && mx < crop.x+crop.w && my > crop.y && my < crop.y+crop.h)
-        return { type: 'move' };
+      if (mx > crop.x && mx < crop.x+crop.w && my > crop.y && my < crop.y+crop.h) return { type: 'move' };
       return null;
     }
 
-    // Scale CSS pixels → canvas coordinate space (handles CSS max-width scaling)
     function ptFromEvent(e) {
       const rect = canvas.getBoundingClientRect();
       const touch = e.touches ? e.touches[0] : e;
@@ -881,7 +851,6 @@ function openCropperWithSrc(src, mode, docIdx) {
     canvas.addEventListener('mouseup', onUp);
     canvas.addEventListener('touchend', onUp);
 
-    // Build a wider overlay manually so the canvas has room to breathe
     const overlay = el('div', { className: 'kb-overlay' });
     const modal   = el('div', { className: 'kb-modal staffdossier-crop-modal' });
     const hdr     = el('div', { className: 'kb-modal__hdr' });
@@ -895,7 +864,6 @@ function openCropperWithSrc(src, mode, docIdx) {
       if (resolved) return; resolved = true;
       cleanup();
       if (result !== 'confirm') return;
-      // Export: convert canvas-space crop coords → original image pixels
       const sx = crop.x * scaleX, sy = crop.y * scaleY;
       const sw = crop.w * scaleX, sh = crop.h * scaleY;
       const off = document.createElement('canvas');
@@ -905,10 +873,7 @@ function openCropperWithSrc(src, mode, docIdx) {
       if (mode === 'photo') {
         state.personal.photo = dataUrl;
         const box = document.getElementById('photo-preview-box');
-        if (box) {
-          box.innerHTML = '';
-          box.appendChild(el('img', { src: dataUrl, alt: '' }));
-        }
+        if (box) { box.innerHTML = ''; box.appendChild(el('img', { src: dataUrl, alt: '' })); }
         const btns = box && box.nextElementSibling;
         if (btns) {
           btns.innerHTML = '';
@@ -944,14 +909,10 @@ function fitCrop(cw, ch, aspect) {
 
 // ── Download (HTML output) ─────────────────────────────────────────────────
 function onDownload() {
-  const name = state.personal.name;
-  const slug = name ? name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : 'staff';
-  const filename = slug + '-dossier.html';
-
   const html = buildOutputHtml();
   const blob = new Blob([html], { type: 'text/html' });
   const url = URL.createObjectURL(blob);
-  const a = el('a', { href: url, download: filename });
+  const a = el('a', { href: url, download: 'dossier.html' });
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -962,181 +923,285 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function docValidityHtml(doc) {
-  if (!doc.expiryDate) return `<span class="badge badge-none">No expiry date</span>`;
+function addrOneLiner(addr) {
+  if (!addr || typeof addr !== 'object') return '';
+  return [addr.line1, addr.city, addr.province, addr.postalCode, addr.country]
+    .filter(Boolean).join(', ');
+}
+
+function docValidityClass(doc) {
+  if (!doc.expiryDate) return 'none';
   const today = new Date(); today.setHours(0,0,0,0);
   const exp = new Date(doc.expiryDate + 'T00:00:00');
   const warnMs = getWarningMonths(doc.type) * 30.44 * 86400000;
+  if (exp < today) return 'exp';
+  if (exp - today < warnMs) return 'warn';
+  return 'ok';
+}
+
+function docValidityText(doc) {
+  if (!doc.expiryDate) return 'No expiry date';
   const d = formatDate(doc.expiryDate);
-  if (exp < today) return `<span class="badge badge-expired">EXPIRED</span>`;
-  if (exp - today < warnMs) return `<span class="badge badge-warn">Expires ${esc(d)}</span>`;
-  return `<span class="badge badge-ok">Valid until ${esc(d)}</span>`;
+  const cls = docValidityClass(doc);
+  if (cls === 'exp')  return 'EXPIRED';
+  if (cls === 'warn') return 'Expires ' + d;
+  return 'Valid until ' + d;
 }
 
 function buildOutputHtml() {
   const p = state.personal;
   const e = state.employment;
   const org = CFG.organization || 'Center for Asylum Protection';
-  const titleName = p.name || 'Staff';
+  const name = p.name || 'Staff';
 
-  let sections = '';
+  const photoHtml = p.photo
+    ? `<div class="hdr-photo"><img src="${p.photo}" alt="Staff photo"></div>`
+    : '';
 
-  // Personal
-  sections += `<section id="personal"><h2>Personal Information</h2><table>`;
-  if (p.name)  sections += `<tr><th>Full name</th><td>${esc(p.name)}</td></tr>`;
-  if (p.email) sections += `<tr><th>Email</th><td>${esc(p.email)}</td></tr>`;
-  if (p.phone) sections += `<tr><th>Phone</th><td>${esc(p.phone)}</td></tr>`;
-  if (p.address) sections += `<tr><th>Address</th><td>${esc(p.address)}</td></tr>`;
-  sections += `</table>`;
+  const addr = p.address && typeof p.address === 'object' ? p.address : {};
+  const addrParts = [addr.line1, [addr.city, addr.province].filter(Boolean).join(', '),
+    addr.postalCode, addr.country].filter(Boolean);
+
+  // ── Personal section ──────────────────────────────────────────────
+  let personalHtml = `<div class="card">
+  <div class="card-title">Personal Information</div>
+  <table>`;
+  if (p.name)  personalHtml += `<tr><th>Full name</th><td>${esc(p.name)}</td></tr>`;
+  if (p.email) personalHtml += `<tr><th>Email</th><td><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></td></tr>`;
+  if (p.phone) personalHtml += `<tr><th>Phone</th><td>${esc(p.phone)}</td></tr>`;
+  if (addrParts.length) {
+    personalHtml += `<tr><th>Address</th><td>${addrParts.map(esc).join('<br>')}</td></tr>`;
+  }
+  personalHtml += `</table></div>`;
+
   if (p.education && p.education.length) {
-    sections += `<h3>Education</h3><table><tr><th>Institution</th><th>Qualification</th><th>Year</th></tr>`;
+    personalHtml += `<div class="card"><div class="card-title">Education</div><table>
+    <tr><th style="width:auto">Institution</th><th style="width:auto">Qualification</th><th style="width:80px">Year</th></tr>`;
     p.education.forEach(ed => {
-      sections += `<tr><td>${esc(ed.institution)}</td><td>${esc(ed.qualification)}</td><td>${esc(ed.year)}</td></tr>`;
+      personalHtml += `<tr><td>${esc(ed.institution)}</td><td>${esc(ed.qualification)}</td><td>${esc(ed.year)}</td></tr>`;
     });
-    sections += `</table>`;
+    personalHtml += `</table></div>`;
   }
+
   if (p.workHistory && p.workHistory.length) {
-    sections += `<h3>Prior Work History</h3><table><tr><th>Employer</th><th>Role</th><th>From</th><th>To</th></tr>`;
+    personalHtml += `<div class="card"><div class="card-title">Prior Work History</div><div class="accordion">`;
     p.workHistory.forEach(w => {
-      sections += `<tr><td>${esc(w.employer)}</td><td>${esc(w.role)}</td><td>${esc(formatDate(w.from))}</td><td>${esc(formatDate(w.to))}</td></tr>`;
+      const from = w.from ? formatDate(w.from, 'MMM YYYY') : '';
+      const to   = w.to   ? formatDate(w.to,   'MMM YYYY') : 'present';
+      personalHtml += `<details><summary>
+        <span>${esc(w.employer || '—')} <span class="sum-role">· ${esc(w.role || '—')}</span></span>
+        <span class="sum-dates">${esc(from)}${from||to ? ' – ' : ''}${esc(to)}</span>
+      </summary><div class="acc-body"><table>`;
+      if (w.employer) personalHtml += `<tr><th>Employer</th><td>${esc(w.employer)}</td></tr>`;
+      if (w.role)     personalHtml += `<tr><th>Role</th><td>${esc(w.role)}</td></tr>`;
+      if (w.from)     personalHtml += `<tr><th>From</th><td>${esc(formatDate(w.from))}</td></tr>`;
+      if (w.to)       personalHtml += `<tr><th>To</th><td>${esc(formatDate(w.to))}</td></tr>`;
+      personalHtml += `</table></div></details>`;
     });
-    sections += `</table>`;
+    personalHtml += `</div></div>`;
   }
-  const ec = p.emergencyContact;
-  if (ec && (ec.name || ec.phone)) {
-    sections += `<h3>Emergency Contact</h3><table>`;
-    if (ec.name)         sections += `<tr><th>Name</th><td>${esc(ec.name)}</td></tr>`;
-    if (ec.relationship) sections += `<tr><th>Relationship</th><td>${esc(ec.relationship)}</td></tr>`;
-    if (ec.phone)        sections += `<tr><th>Phone</th><td>${esc(ec.phone)}</td></tr>`;
-    sections += `</table>`;
-  }
-  sections += `</section>`;
 
-  // Employment
-  sections += `<section id="employment"><h2>Employment at CAP</h2><table>`;
-  if (e.hireDate)       sections += `<tr><th>Hire date</th><td>${esc(formatDate(e.hireDate))}</td></tr>`;
-  if (e.probationEnd)   sections += `<tr><th>Probation end</th><td>${esc(formatDate(e.probationEnd))}</td></tr>`;
-  if (e.contractType)   sections += `<tr><th>Contract type</th><td>${esc(e.contractType)}</td></tr>`;
-  if (e.currentRole)    sections += `<tr><th>Current role</th><td>${esc(e.currentRole)}</td></tr>`;
-  if (e.eligibleForRehire) sections += `<tr><th>Eligible for rehire</th><td>${esc(e.eligibleForRehire)}</td></tr>`;
-  sections += `</table>`;
+  const ec = p.emergencyContact || {};
+  if (ec.name || ec.phone || ec.email) {
+    personalHtml += `<div class="card"><div class="card-title">Emergency Contact / Next of Kin</div><table>`;
+    if (ec.name)         personalHtml += `<tr><th>Name</th><td>${esc(ec.name)}</td></tr>`;
+    if (ec.relationship) personalHtml += `<tr><th>Relationship</th><td>${esc(ec.relationship)}</td></tr>`;
+    if (ec.phone)        personalHtml += `<tr><th>Phone</th><td>${esc(ec.phone)}</td></tr>`;
+    if (ec.email)        personalHtml += `<tr><th>Email</th><td><a href="mailto:${esc(ec.email)}">${esc(ec.email)}</a></td></tr>`;
+    personalHtml += `</table></div>`;
+  }
+
+  // ── Employment section ────────────────────────────────────────────
+  let employmentHtml = `<div class="card"><div class="card-title">Employment at CAP</div><table>`;
+  if (e.hireDate)       employmentHtml += `<tr><th>Hire date</th><td>${esc(formatDate(e.hireDate))}</td></tr>`;
+  if (e.probationEnd)   employmentHtml += `<tr><th>Probation end</th><td>${esc(formatDate(e.probationEnd))}</td></tr>`;
+  if (e.contractType)   employmentHtml += `<tr><th>Contract type</th><td>${esc(e.contractType)}</td></tr>`;
+  if (e.currentRole)    employmentHtml += `<tr><th>Current role</th><td>${esc(e.currentRole)}</td></tr>`;
+  if (e.eligibleForRehire) employmentHtml += `<tr><th>Eligible for rehire</th><td>${esc(e.eligibleForRehire)}</td></tr>`;
+  employmentHtml += `</table></div>`;
+
   if (e.roleHistory && e.roleHistory.length) {
-    sections += `<h3>Role History</h3><table><tr><th>Role</th><th>From</th><th>To</th></tr>`;
+    employmentHtml += `<div class="card"><div class="card-title">Role History</div>
+    <table><tr><th style="width:auto">Role</th><th>From</th><th>To</th></tr>`;
     e.roleHistory.forEach(r => {
-      sections += `<tr><td>${esc(r.role)}</td><td>${esc(formatDate(r.from))}</td><td>${esc(formatDate(r.to))}</td></tr>`;
+      employmentHtml += `<tr><td>${esc(r.role)}</td><td>${esc(formatDate(r.from))}</td><td>${esc(formatDate(r.to))}</td></tr>`;
     });
-    sections += `</table>`;
+    employmentHtml += `</table></div>`;
   }
+
   if (e.terminationDate || e.terminationReason) {
-    sections += `<h3>Termination</h3><table>`;
-    if (e.terminationDate)   sections += `<tr><th>Date</th><td>${esc(formatDate(e.terminationDate))}</td></tr>`;
-    if (e.terminationReason) sections += `<tr><th>Reason</th><td>${esc(e.terminationReason)}</td></tr>`;
-    sections += `</table>`;
-  }
-  sections += `</section>`;
-
-  // Documents
-  if (state.documents.length) {
-    sections += `<section id="documents"><h2>Identity Documents</h2>`;
-    state.documents.forEach(doc => {
-      sections += `<div class="doc-entry">`;
-      sections += `<div class="doc-type">${esc(doc.type || 'Document')} ${docValidityHtml(doc)}</div>`;
-      sections += `<table>`;
-      if (doc.number)        sections += `<tr><th>Number</th><td>${esc(doc.number)}</td></tr>`;
-      if (doc.issueDate)     sections += `<tr><th>Issue date</th><td>${esc(formatDate(doc.issueDate))}</td></tr>`;
-      if (doc.issueAuthority) sections += `<tr><th>Issuing authority</th><td>${esc(doc.issueAuthority)}</td></tr>`;
-      if (doc.expiryDate)    sections += `<tr><th>Expiry date</th><td>${esc(formatDate(doc.expiryDate))}</td></tr>`;
-      sections += `</table>`;
-      if (doc.scan) sections += `<img class="doc-scan" src="${doc.scan}" alt="Document scan">`;
-      sections += `</div>`;
-    });
-    sections += `</section>`;
+    employmentHtml += `<div class="card"><div class="card-title">Termination</div><table>`;
+    if (e.terminationDate)   employmentHtml += `<tr><th>Date</th><td>${esc(formatDate(e.terminationDate))}</td></tr>`;
+    if (e.terminationReason) employmentHtml += `<tr><th>Reason</th><td>${esc(e.terminationReason)}</td></tr>`;
+    employmentHtml += `</table></div>`;
   }
 
-  // Reviews
+  // ── Documents section ─────────────────────────────────────────────
+  let documentsHtml = '';
+  state.documents.forEach(doc => {
+    const cls  = docValidityClass(doc);
+    const text = docValidityText(doc);
+    documentsHtml += `<div class="card">
+    <div class="doc-hdr">
+      <span class="doc-name">${esc(doc.type || 'Document')}</span>
+      <span class="validity validity-${esc(cls)}">${esc(text)}</span>
+    </div>
+    <table>`;
+    if (doc.number)         documentsHtml += `<tr><th>Number</th><td>${esc(doc.number)}</td></tr>`;
+    if (doc.issueDate)      documentsHtml += `<tr><th>Issue date</th><td>${esc(formatDate(doc.issueDate))}</td></tr>`;
+    if (doc.issueAuthority) documentsHtml += `<tr><th>Issuing authority</th><td>${esc(doc.issueAuthority)}</td></tr>`;
+    if (doc.expiryDate)     documentsHtml += `<tr><th>Expiry date</th><td>${esc(formatDate(doc.expiryDate))}</td></tr>`;
+    documentsHtml += `</table>`;
+    if (doc.scan) documentsHtml += `<img class="doc-scan" src="${doc.scan}" alt="Document scan">`;
+    documentsHtml += `</div>`;
+  });
+  if (!documentsHtml) documentsHtml = `<p class="empty">No documents recorded.</p>`;
+
+  // ── Reviews section ───────────────────────────────────────────────
+  let reviewsHtml = '';
   if (state.reviews.length) {
     const sorted = [...state.reviews].sort((a, b) => {
       if (!a.date) return 1; if (!b.date) return -1;
       return b.date.localeCompare(a.date);
     });
-    sections += `<section id="reviews"><h2>Performance Reviews</h2>`;
+    reviewsHtml += `<div class="card"><div class="card-title">Performance Reviews</div><div class="accordion">`;
     sorted.forEach(r => {
-      sections += `<div class="review-entry"><table>`;
-      if (r.date)      sections += `<tr><th>Date</th><td>${esc(formatDate(r.date))}</td></tr>`;
-      if (r.venue)     sections += `<tr><th>Venue</th><td>${esc(r.venue)}</td></tr>`;
-      if (r.reviewers) sections += `<tr><th>Reviewer(s)</th><td>${esc(r.reviewers)}</td></tr>`;
-      if (r.outcome)   sections += `<tr><th>Outcome</th><td>${esc(r.outcome)}</td></tr>`;
-      if (r.narrative) sections += `<tr><th>Narrative</th><td>${esc(r.narrative)}</td></tr>`;
-      if (r.link)      sections += `<tr><th>Record</th><td><a href="${esc(r.link)}">${esc(r.link)}</a></td></tr>`;
-      sections += `</table></div>`;
+      const dateStr    = r.date ? formatDate(r.date) : '—';
+      const outcomeStr = r.outcome || '';
+      reviewsHtml += `<details><summary>
+        <span>${esc(dateStr)}${outcomeStr ? ' — ' + esc(outcomeStr) : ''}</span>
+        <span class="sum-dates">${esc(r.venue || '')}</span>
+      </summary><div class="acc-body"><table>`;
+      if (r.date)      reviewsHtml += `<tr><th>Date</th><td>${esc(formatDate(r.date))}</td></tr>`;
+      if (r.venue)     reviewsHtml += `<tr><th>Venue</th><td>${esc(r.venue)}</td></tr>`;
+      if (r.reviewers) reviewsHtml += `<tr><th>Reviewer(s)</th><td>${esc(r.reviewers)}</td></tr>`;
+      if (r.outcome)   reviewsHtml += `<tr><th>Outcome</th><td>${esc(r.outcome)}</td></tr>`;
+      if (r.narrative) reviewsHtml += `<tr><th>Narrative</th><td style="white-space:pre-wrap">${esc(r.narrative)}</td></tr>`;
+      if (r.link)      reviewsHtml += `<tr><th>Record</th><td><a href="${esc(r.link)}">${esc(r.link)}</a></td></tr>`;
+      reviewsHtml += `</table></div></details>`;
     });
-    sections += `</section>`;
+    reviewsHtml += `</div></div>`;
+  } else {
+    reviewsHtml = `<p class="empty">No reviews recorded.</p>`;
   }
 
-  // Document links
+  // ── Files section ─────────────────────────────────────────────────
+  let filesHtml = '';
   if (state.documentLinks.length) {
-    sections += `<section id="files"><h2>Document Links</h2><ul>`;
+    filesHtml += `<div class="card"><div class="card-title">Document Links</div><ul>`;
     state.documentLinks.forEach(f => {
-      if (f.url) sections += `<li><a href="${esc(f.url)}">${esc(f.label || f.url)}</a></li>`;
-      else if (f.label) sections += `<li>${esc(f.label)}</li>`;
+      if (f.url) filesHtml += `<li><a href="${esc(f.url)}">${esc(f.label || f.url)}</a></li>`;
+      else if (f.label) filesHtml += `<li>${esc(f.label)}</li>`;
     });
-    sections += `</ul></section>`;
+    filesHtml += `</ul></div>`;
+  } else {
+    filesHtml = `<p class="empty">No document links recorded.</p>`;
   }
-
-  const photoHtml = p.photo ? `<div class="photo"><img src="${p.photo}" alt="Staff photo"></div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>${esc(titleName)} — Staff Dossier — ${esc(org)}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(name)} — Staff Dossier — ${esc(org)}</title>
 <style>
-  *, *::before, *::after { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.6;
-    color: #1a1d21; background: #fff; margin: 0; padding: 24px; }
-  header { display: flex; gap: 20px; align-items: flex-start;
-    border-bottom: 2px solid #2f6fed; padding-bottom: 16px; margin-bottom: 24px; }
-  .photo { width: 88px; height: 113px; overflow: hidden; border-radius: 4px; flex-shrink: 0; }
-  .photo img { width: 100%; height: 100%; object-fit: cover; }
-  .identity h1 { margin: 0 0 4px; font-size: 22px; color: #2f6fed; }
-  .identity p { margin: 2px 0; color: #555; }
-  section { margin-bottom: 28px; }
-  h2 { font-size: 16px; font-weight: 700; color: #2f6fed;
-    border-bottom: 1px solid #e0e6f0; padding-bottom: 6px; margin: 0 0 12px; }
-  h3 { font-size: 14px; font-weight: 700; color: #333; margin: 16px 0 8px; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-  th, td { text-align: left; padding: 6px 10px; font-size: 13px;
-    border-bottom: 1px solid #e8ecf0; }
-  th { font-weight: 600; color: #666; width: 180px; background: #f6f8fb; }
-  .doc-entry { border: 1px solid #dde3ed; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; }
-  .doc-type { font-weight: 700; font-size: 15px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
-  .doc-scan { max-width: 100%; border-radius: 4px; margin-top: 10px; border: 1px solid #dde3ed; }
-  .review-entry { border: 1px solid #dde3ed; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
-  .badge-ok      { background: #dcfce7; color: #166534; }
-  .badge-warn    { background: #fef9c3; color: #854d0e; }
-  .badge-expired { background: #fee2e2; color: #991b1b; }
-  .badge-none    { background: #f1f5f9; color: #64748b; }
-  ul { padding-left: 20px; }
-  li { margin-bottom: 4px; }
-  a { color: #2f6fed; }
-  @media print {
-    body { padding: 0; }
-    .doc-scan { max-width: 50%; }
-  }
+:root{--accent:#2f6fed;--surface:#fff;--surface-2:#f4f6fb;--border:#e0e6f0;--text:#1a1d21;--muted:#6b7280;--success-bg:#dcfce7;--success-fg:#166534;--warn-bg:#fef9c3;--warn-fg:#854d0e;--exp-bg:#fee2e2;--exp-fg:#991b1b;--none-bg:#f1f5f9;--none-fg:#64748b;}
+*,*::before,*::after{box-sizing:border-box;}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.6;color:var(--text);background:var(--surface-2);margin:0;}
+.wrap{max-width:960px;margin:0 auto;padding:24px 20px 56px;}
+/* Header */
+.hdr{display:flex;gap:20px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.hdr-photo{width:88px;height:113px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid var(--border);}
+.hdr-photo img{width:100%;height:100%;object-fit:cover;}
+.hdr-identity{min-width:0;}
+.hdr-identity h1{margin:0 0 4px;font-size:22px;font-weight:700;color:var(--text);}
+.hdr-identity .role{font-size:15px;color:var(--accent);font-weight:600;margin-bottom:2px;}
+.hdr-identity .meta{font-size:13px;color:var(--muted);}
+.hdr-org{margin-left:auto;text-align:right;flex-shrink:0;}
+.hdr-org .org-name{font-size:13px;font-weight:700;color:var(--muted);}
+.hdr-org .org-sub{font-size:12px;color:var(--muted);}
+/* Tabs */
+.tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:20px;}
+.tab-btn{padding:9px 18px;font:600 13px/1 system-ui,sans-serif;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;border-radius:6px 6px 0 0;white-space:nowrap;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:#eef4ff;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.04);padding:18px 20px;margin-bottom:14px;}
+.card-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+.card-title::before{content:'';display:block;width:3px;height:13px;border-radius:2px;background:var(--accent);flex-shrink:0;}
+/* Tables */
+table{width:100%;border-collapse:collapse;}
+th,td{text-align:left;padding:7px 10px;font-size:13px;border-bottom:1px solid #f0f2f6;vertical-align:top;}
+th{font-weight:600;color:var(--muted);width:180px;white-space:nowrap;}
+tr:last-child th,tr:last-child td{border-bottom:none;}
+/* Validity */
+.doc-hdr{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.doc-name{font-size:16px;font-weight:700;color:var(--text);}
+.validity{display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:700;}
+.validity-ok  {background:var(--success-bg);color:var(--success-fg);}
+.validity-warn{background:var(--warn-bg);color:var(--warn-fg);}
+.validity-exp {background:var(--exp-bg);color:var(--exp-fg);}
+.validity-none{background:var(--none-bg);color:var(--none-fg);}
+.doc-scan{max-width:100%;border-radius:4px;margin-top:12px;border:1px solid var(--border);display:block;}
+/* Accordion */
+.accordion{border-top:1px solid var(--border);}
+details{border-bottom:1px solid var(--border);}
+summary{list-style:none;padding:11px 6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;font-weight:600;color:var(--text);user-select:none;}
+summary::-webkit-details-marker{display:none;}
+summary::after{content:'▸';color:var(--muted);font-size:11px;flex-shrink:0;transition:transform .15s;}
+details[open]>summary::after{transform:rotate(90deg);}
+details[open]>summary{color:var(--accent);}
+.sum-role{font-weight:400;color:var(--muted);}
+.sum-dates{font-weight:400;color:var(--muted);font-size:12px;white-space:nowrap;}
+.acc-body{padding:6px 6px 14px;}
+/* Misc */
+a{color:var(--accent);text-decoration:none;}
+a:hover{text-decoration:underline;}
+ul{margin:4px 0;padding-left:20px;}
+li{margin-bottom:4px;font-size:13px;}
+.empty{color:var(--muted);font-size:13px;padding:4px 0;}
 </style>
 </head>
 <body>
-<header>
+<div class="wrap">
+
+<div class="hdr">
   ${photoHtml}
-  <div class="identity">
-    <h1>${esc(p.name || 'Staff')}</h1>
-    ${e.currentRole ? `<p>${esc(e.currentRole)}${e.contractType ? ' · ' + esc(e.contractType) : ''}</p>` : ''}
-    ${e.hireDate ? `<p>Hired: ${esc(formatDate(e.hireDate))}</p>` : ''}
-    ${e.terminationDate ? `<p>Terminated: ${esc(formatDate(e.terminationDate))}</p>` : ''}
+  <div class="hdr-identity">
+    <h1>${esc(name)}</h1>
+    ${e.currentRole ? `<div class="role">${esc(e.currentRole)}${e.contractType ? ' · ' + esc(e.contractType) : ''}</div>` : ''}
+    ${e.hireDate ? `<div class="meta">Hired ${esc(formatDate(e.hireDate))}</div>` : ''}
+    ${e.terminationDate ? `<div class="meta">Terminated ${esc(formatDate(e.terminationDate))}</div>` : ''}
   </div>
-</header>
-${sections}
+  <div class="hdr-org">
+    <div class="org-name">${esc(org)}</div>
+    <div class="org-sub">Staff Dossier</div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="personal"   onclick="showTab('personal')">Personal</button>
+  <button class="tab-btn"        data-tab="employment" onclick="showTab('employment')">Employment</button>
+  <button class="tab-btn"        data-tab="documents"  onclick="showTab('documents')">Documents</button>
+  <button class="tab-btn"        data-tab="reviews"    onclick="showTab('reviews')">Reviews</button>
+  <button class="tab-btn"        data-tab="files"      onclick="showTab('files')">Files</button>
+</nav>
+
+<div id="personal"   class="tab-pane active">${personalHtml}</div>
+<div id="employment" class="tab-pane">${employmentHtml}</div>
+<div id="documents"  class="tab-pane">${documentsHtml}</div>
+<div id="reviews"    class="tab-pane">${reviewsHtml}</div>
+<div id="files"      class="tab-pane">${filesHtml}</div>
+
+</div>
+<script>
+function showTab(id){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.toggle('active',p.id===id));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+}
+<\/script>
 <script type="application/json" id="staff-data">
 ${JSON.stringify(state, null, 2)}
 <\/script>
@@ -1157,9 +1222,7 @@ document.getElementById('load-file-input').addEventListener('change', function()
       if (!match) throw new Error('No staff-data block found in this file.');
       const parsed = JSON.parse(match[1]);
       if (!parsed || typeof parsed !== 'object') throw new Error('staff-data is not a valid JSON object.');
-      // Merge with empty state to fill missing keys
-      const fresh = emptyState();
-      state = deepMerge(fresh, parsed);
+      state = deepMerge(emptyState(), parsed);
       render();
     } catch (err) {
       kbAlert({ title: 'Cannot load dossier', message: err.message });
@@ -1192,17 +1255,18 @@ function render() {
   wrap.appendChild(buildToolbar());
   wrap.appendChild(buildHeader());
 
-  // Top action row
+  // Top action row: Load · New on left, Download on right
   const topActions = el('div', { className: 'staffdossier-top-actions' });
   topActions.append(
     el('button', { type: 'button', className: 'kb-btn kb-btn--ghost',
       onClick: () => document.getElementById('load-file-input').click() }, S('load')),
     el('button', { type: 'button', className: 'kb-btn kb-btn--ghost',
-      onClick: onNew }, S('new'))
+      onClick: onNew }, S('new')),
+    el('div', { className: 'spacer' }),
+    el('button', { type: 'button', className: 'kb-btn kb-btn--primary', onClick: onDownload }, S('save'))
   );
   wrap.appendChild(topActions);
 
-  // Tabs
   const tabs = [
     { label: S('tab-personal'),   build: buildPersonalTab },
     { label: S('tab-employment'), build: buildEmploymentTab },
@@ -1229,7 +1293,6 @@ async function onNew() {
   render();
 }
 
-// Toolbar
 function buildToolbar() {
   const toolbar = el('div', { className: 'kb-toolbar' });
   const langSel = el('select', { className: 'kb-select', 'aria-label': 'Language' });
@@ -1244,13 +1307,8 @@ function buildToolbar() {
     render();
   });
   const { seg: sizeSeg, label: szLabel } = makeSizeControl();
-  toolbar.append(
-    langSel,
-    el('div', { className: 'spacer' }),
-    sizeSeg, szLabel,
-    makeThemeButton(),
-    makeAboutButton(showAboutModal)
-  );
+  toolbar.append(langSel, el('div', { className: 'spacer' }), sizeSeg, szLabel,
+    makeThemeButton(), makeAboutButton(showAboutModal));
   return toolbar;
 }
 
