@@ -112,6 +112,10 @@
 .staffdossier-doc-header .kb-field { flex: 1; }
 
 /* ── Cropper modal ──────────────────────────────────────────────── */
+.staffdossier-crop-modal {
+  max-width: min(760px, 96vw) !important;
+  width: min(760px, 96vw) !important;
+}
 .staffdossier-crop-wrap {
   display: flex; flex-direction: column; align-items: center;
   gap: 10px; padding: 4px 0;
@@ -768,34 +772,40 @@ function openCropperWithSrc(src, mode, docIdx) {
 
   const img = new Image();
   img.onload = () => {
-    const MAX = 520;
+    // Scale image to canvas coordinate space (fits within 680×500)
+    const MAX_W = 680, MAX_H = 500;
     let cw = img.naturalWidth, ch = img.naturalHeight;
-    if (cw > MAX) { ch = Math.round(ch * MAX / cw); cw = MAX; }
-    if (ch > 400) { cw = Math.round(cw * 400 / ch); ch = 400; }
+    if (cw > MAX_W) { ch = Math.round(ch * MAX_W / cw); cw = MAX_W; }
+    if (ch > MAX_H) { cw = Math.round(cw * MAX_H / ch); ch = MAX_H; }
+
+    // Scale factors from canvas coords back to original image pixels
+    const scaleX = img.naturalWidth / cw;
+    const scaleY = img.naturalHeight / ch;
 
     const canvas = el('canvas', { className: 'staffdossier-crop-canvas', width: cw, height: ch });
     const ctx = canvas.getContext('2d');
 
-    // Initial crop rectangle
     let crop = fitCrop(cw, ch, aspect);
     let drag = null;
 
     function draw() {
       ctx.clearRect(0, 0, cw, ch);
       ctx.drawImage(img, 0, 0, cw, ch);
-      // Dim outside crop
+      // Punch a hole in the dark overlay using evenodd winding — no
+      // source-coordinate arithmetic needed, avoids the "wrong region" bug.
+      ctx.beginPath();
+      ctx.rect(0, 0, cw, ch);
+      ctx.rect(crop.x, crop.y, crop.w, crop.h);
       ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fillRect(0, 0, cw, ch);
-      ctx.clearRect(crop.x, crop.y, crop.w, crop.h);
-      ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, crop.x, crop.y, crop.w, crop.h);
+      ctx.fill('evenodd');
       // Border
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2;
       ctx.strokeRect(crop.x, crop.y, crop.w, crop.h);
       // Corner handles
       const hs = 8;
+      ctx.fillStyle = '#fff';
       [[crop.x, crop.y],[crop.x+crop.w, crop.y],[crop.x, crop.y+crop.h],[crop.x+crop.w, crop.y+crop.h]].forEach(([hx,hy]) => {
-        ctx.fillStyle = '#fff';
         ctx.fillRect(hx - hs/2, hy - hs/2, hs, hs);
       });
     }
@@ -817,10 +827,14 @@ function openCropperWithSrc(src, mode, docIdx) {
       return null;
     }
 
+    // Scale CSS pixels → canvas coordinate space (handles CSS max-width scaling)
     function ptFromEvent(e) {
       const rect = canvas.getBoundingClientRect();
       const touch = e.touches ? e.touches[0] : e;
-      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+      return {
+        x: (touch.clientX - rect.left) * (cw / rect.width),
+        y: (touch.clientY - rect.top)  * (ch / rect.height),
+      };
     }
 
     canvas.addEventListener('mousedown', e => {
@@ -849,11 +863,9 @@ function openCropperWithSrc(src, mode, docIdx) {
         if (n === 'ne') { nw = sc.w + dx; ny = sc.y + dy; nh = sc.h - dy; }
         if (n === 'sw') { nx = sc.x + dx; nw = sc.w - dx; nh = sc.h + dy; }
         if (n === 'se') { nw = sc.w + dx; nh = sc.h + dy; }
-        // Enforce aspect ratio from the dominant axis
         if (nw < 20) nw = 20;
         if (nw / aspect < 20) nw = 20 * aspect;
         nh = nw / aspect;
-        // Clamp
         nx = Math.max(0, Math.min(cw - nw, nx));
         ny = Math.max(0, Math.min(ch - nh, ny));
         nw = Math.min(cw - nx, nw);
@@ -869,28 +881,29 @@ function openCropperWithSrc(src, mode, docIdx) {
     canvas.addEventListener('mouseup', onUp);
     canvas.addEventListener('touchend', onUp);
 
-    const bodyNode = el('div', { className: 'kb-modal__body staffdossier-crop-wrap' });
-    bodyNode.appendChild(canvas);
-
-    kbModal({
-      title,
-      bodyNode,
-      buttons: [
-        { label: S('crop-cancel'), value: 'cancel', variant: 'kb-btn--ghost' },
-        { label: S('crop-confirm'), value: 'confirm', variant: 'kb-btn--primary', autofocus: true },
-      ],
-      dismissable: true,
-      dismissValue: 'cancel',
-    }).then(result => {
+    // Build a wider overlay manually so the canvas has room to breathe
+    const overlay = el('div', { className: 'kb-overlay' });
+    const modal   = el('div', { className: 'kb-modal staffdossier-crop-modal' });
+    const hdr     = el('div', { className: 'kb-modal__hdr' });
+    hdr.appendChild(el('span', null, title));
+    const body = el('div', { className: 'kb-modal__body staffdossier-crop-wrap' });
+    body.appendChild(canvas);
+    const footer = el('div', { className: 'kb-modal__footer' });
+    let resolved = false;
+    function cleanup() { overlay.remove(); document.removeEventListener('keydown', onKey); }
+    function resolve(result) {
+      if (resolved) return; resolved = true;
+      cleanup();
       if (result !== 'confirm') return;
-      // Export crop
+      // Export: convert canvas-space crop coords → original image pixels
+      const sx = crop.x * scaleX, sy = crop.y * scaleY;
+      const sw = crop.w * scaleX, sh = crop.h * scaleY;
       const off = document.createElement('canvas');
-      off.width = Math.round(crop.w); off.height = Math.round(crop.h);
-      off.getContext('2d').drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, off.width, off.height);
+      off.width = Math.round(sw); off.height = Math.round(sh);
+      off.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, off.width, off.height);
       const dataUrl = off.toDataURL('image/jpeg', 0.85);
       if (mode === 'photo') {
         state.personal.photo = dataUrl;
-        // Update preview in DOM without full re-render
         const box = document.getElementById('photo-preview-box');
         if (box) {
           box.innerHTML = '';
@@ -907,7 +920,18 @@ function openCropperWithSrc(src, mode, docIdx) {
         const scanArea = document.getElementById('scan-area-' + docIdx);
         if (scanArea) refreshScanArea(scanArea, docIdx);
       }
-    });
+    }
+    footer.append(
+      el('button', { className: 'kb-btn kb-btn--ghost',   onClick: () => resolve('cancel')  }, S('crop-cancel')),
+      el('button', { className: 'kb-btn kb-btn--primary', onClick: () => resolve('confirm') }, S('crop-confirm'))
+    );
+    modal.append(hdr, body, footer);
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) resolve('cancel'); });
+    function onKey(e) { if (e.key === 'Escape') resolve('cancel'); }
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    footer.querySelector('.kb-btn--primary').focus();
   };
   img.src = src;
 }
