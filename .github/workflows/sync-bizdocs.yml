@@ -1,0 +1,32 @@
+name: Sync bizdocs shared assets
+
+on:
+  schedule:
+    - cron: '0 20 * * *'   # 20:00 UTC = 03:00 UTC+7
+  workflow_dispatch: {}    # adds a "Run workflow" button in the Actions tab
+
+permissions:
+  contents: write           # required so the job can push the commit back
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run sync.sh
+        run: bash sync.sh --from-github
+        env:
+          BIZDOCS_REF: main
+
+      - name: Commit if files changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes."
+          else
+            git commit -m "Sync shared assets from bizdocs"
+            git push
+          fi
