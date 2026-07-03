@@ -37,7 +37,9 @@
 .staffdossier-tab:hover { color: var(--text); }
 .staffdossier-tab.is-active {
   color: var(--accent); border-bottom-color: var(--accent);
-  background: var(--accent-soft);
+  /* Derive the surface from the live --accent so it tracks any (bold) accent,
+     instead of the fixed --accent-soft token which applyAccent() never updates. */
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
 }
 .staffdossier-tab-content > div { display: none; }
 .staffdossier-tab-content > div.is-active { display: block; }
@@ -1175,7 +1177,7 @@ body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1
 .tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:20px;}
 .tab-btn{padding:9px 18px;font:600 13px/1 system-ui,sans-serif;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;border-radius:6px 6px 0 0;white-space:nowrap;}
 .tab-btn:hover{color:var(--text);}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:#eef4ff;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, var(--surface));}
 .tab-pane{display:none;}
 .tab-pane.active{display:block;}
 /* Cards */
