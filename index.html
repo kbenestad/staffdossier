@@ -775,6 +775,7 @@ function openCropperWithSrc(src, mode, docIdx) {
     const canvas = el('canvas', { className: 'staffdossier-crop-canvas', width: cw, height: ch });
     const ctx = canvas.getContext('2d');
 
+    let rot = 0;
     let crop = fitCrop(cw, ch, aspect);
     let drag = null;
 
@@ -872,10 +873,23 @@ function openCropperWithSrc(src, mode, docIdx) {
 
     function doRotate(delta) {
       drag = null;
+      const oldCw = cw, oldCh = ch;
       rotationDeg = ((rotationDeg + delta) % 360 + 360) % 360;
       updateSize();
       canvas.width = cw; canvas.height = ch;
-      crop = fitCrop(cw, ch, aspect);
+      if (Math.abs(delta) >= 90) {
+        crop = fitCrop(cw, ch, aspect);
+      } else {
+        // Scale crop proportionally to the (tiny) canvas resize
+        crop = {
+          x: crop.x * cw / oldCw, y: crop.y * ch / oldCh,
+          w: crop.w * cw / oldCw, h: crop.h * ch / oldCh,
+        };
+        crop.x = Math.max(0, Math.min(cw - crop.w, crop.x));
+        crop.y = Math.max(0, Math.min(ch - crop.h, crop.y));
+        crop.w = Math.min(cw - crop.x, crop.w);
+        crop.h = Math.min(ch - crop.y, crop.h);
+      }
       draw();
     }
 
@@ -887,10 +901,14 @@ function openCropperWithSrc(src, mode, docIdx) {
     body.appendChild(canvas);
     const rotRow = el('div', { className: 'staffdossier-crop-rot' });
     rotRow.append(
-      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-90) }, S('crop-rotate-ccw-90')),
-      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(90)  }, S('crop-rotate-cw-90')),
-      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-1)  }, S('crop-rotate-ccw-1')),
-      el('button', { type: 'button', className: 'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(1)   }, S('crop-rotate-cw-1')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-90)  }, S('crop-rotate-ccw-90')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-1)   }, S('crop-rotate-ccw-1')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-0.5) }, S('crop-rotate-ccw-05')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(-0.1) }, S('crop-rotate-ccw-01')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(0.1)  }, S('crop-rotate-cw-01')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(0.5)  }, S('crop-rotate-cw-05')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(1)    }, S('crop-rotate-cw-1')),
+      el('button', { type:'button', className:'kb-btn kb-btn--ghost kb-btn--sm', onClick: () => doRotate(90)   }, S('crop-rotate-cw-90')),
     );
     body.appendChild(rotRow);
     const footer = el('div', { className: 'kb-modal__footer' });

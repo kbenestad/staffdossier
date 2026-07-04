@@ -232,8 +232,12 @@ localisation:
       crop-confirm: Use this crop
       crop-cancel: Cancel
       crop-rotate-ccw-90: "↺ 90°"
-      crop-rotate-cw-90: "↻ 90°"
       crop-rotate-ccw-1: "↺ 1°"
+      crop-rotate-ccw-05: "↺ 0.5°"
+      crop-rotate-ccw-01: "↺ 0.1°"
+      crop-rotate-cw-01: "↻ 0.1°"
+      crop-rotate-cw-05: "↻ 0.5°"
       crop-rotate-cw-1: "↻ 1°"
+      crop-rotate-cw-90: "↻ 90°"
 
       no-expiry: No expiry date set
