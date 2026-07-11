@@ -12,7 +12,9 @@
  *
  * Provides: DOM helpers ($, $$, el, uid) · markdown() · brand/icon SVGs ·
  * theme (currentTheme/toggleTheme/makeThemeButton) · modals (kbModal/kbConfirm/
- * kbAlert/kbAbout).
+ * kbAlert/kbAbout) · file download/upload (kbDownloadFile/kbReadFileAsText) ·
+ * shared profile & document records (loadSharedProfile/saveSharedProfile/
+ * kbPushRecord).
  * ========================================================================== */
 "use strict";
 
@@ -47,6 +49,93 @@ function kbEsc(s) {
                   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/* ── Countries (shared select list — same list/codes everywhere a "country"
+ * field exists, so e.g. dashboard's profile and invoice's sender/client
+ * country selects always agree) ───────────────────────────────────────────── */
+const KB_COUNTRIES = [
+  ["","— Select country —"],
+  ["AF","Afghanistan"],["AX","Åland Islands"],["AL","Albania"],["DZ","Algeria"],
+  ["AS","American Samoa"],["AD","Andorra"],["AO","Angola"],["AI","Anguilla"],
+  ["AQ","Antarctica"],["AG","Antigua and Barbuda"],["AR","Argentina"],
+  ["AM","Armenia"],["AW","Aruba"],["AU","Australia"],["AT","Austria"],
+  ["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],
+  ["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],
+  ["BJ","Benin"],["BM","Bermuda"],["BT","Bhutan"],["BO","Bolivia"],
+  ["BQ","Bonaire, Sint Eustatius and Saba"],["BA","Bosnia and Herzegovina"],
+  ["BW","Botswana"],["BV","Bouvet Island"],["BR","Brazil"],
+  ["IO","British Indian Ocean Territory"],["BN","Brunei"],["BG","Bulgaria"],
+  ["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],
+  ["CM","Cameroon"],["CA","Canada"],["KY","Cayman Islands"],
+  ["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],
+  ["CX","Christmas Island"],["CC","Cocos (Keeling) Islands"],["CO","Colombia"],
+  ["KM","Comoros"],["CG","Congo"],["CD","Congo, Democratic Republic"],
+  ["CK","Cook Islands"],["CR","Costa Rica"],["CI","Côte d'Ivoire"],
+  ["HR","Croatia"],["CU","Cuba"],["CW","Curaçao"],["CY","Cyprus"],
+  ["CZ","Czech Republic"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],
+  ["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],
+  ["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],
+  ["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],
+  ["FK","Falkland Islands"],["FO","Faroe Islands"],["FJ","Fiji"],
+  ["FI","Finland"],["FR","France"],["GF","French Guiana"],
+  ["PF","French Polynesia"],["TF","French Southern Territories"],["GA","Gabon"],
+  ["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],
+  ["GI","Gibraltar"],["GR","Greece"],["GL","Greenland"],["GD","Grenada"],
+  ["GP","Guadeloupe"],["GU","Guam"],["GT","Guatemala"],["GG","Guernsey"],
+  ["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],
+  ["HM","Heard Island and McDonald Islands"],["VA","Holy See"],["HN","Honduras"],
+  ["HK","Hong Kong"],["HU","Hungary"],["IS","Iceland"],["IN","India"],
+  ["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],
+  ["IM","Isle of Man"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],
+  ["JP","Japan"],["JE","Jersey"],["JO","Jordan"],["KZ","Kazakhstan"],
+  ["KE","Kenya"],["KI","Kiribati"],["KP","Korea, North"],["KR","Korea, South"],
+  ["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],
+  ["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],
+  ["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MO","Macao"],
+  ["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],
+  ["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MQ","Martinique"],
+  ["MR","Mauritania"],["MU","Mauritius"],["YT","Mayotte"],["MX","Mexico"],
+  ["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],
+  ["ME","Montenegro"],["MS","Montserrat"],["MA","Morocco"],["MZ","Mozambique"],
+  ["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],
+  ["NL","Netherlands"],["NC","New Caledonia"],["NZ","New Zealand"],
+  ["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["NU","Niue"],
+  ["NF","Norfolk Island"],["MK","North Macedonia"],
+  ["MP","Northern Mariana Islands"],["NO","Norway"],["OM","Oman"],
+  ["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],
+  ["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],
+  ["PN","Pitcairn"],["PL","Poland"],["PT","Portugal"],["PR","Puerto Rico"],
+  ["QA","Qatar"],["RE","Réunion"],["RO","Romania"],["RU","Russia"],
+  ["RW","Rwanda"],["BL","Saint Barthélemy"],["SH","Saint Helena"],
+  ["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],
+  ["MF","Saint Martin (French)"],["PM","Saint Pierre and Miquelon"],
+  ["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],
+  ["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],
+  ["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],
+  ["SX","Sint Maarten"],["SK","Slovakia"],["SI","Slovenia"],
+  ["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],
+  ["GS","South Georgia and South Sandwich Islands"],["SS","South Sudan"],
+  ["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],
+  ["SJ","Svalbard and Jan Mayen"],["SE","Sweden"],["CH","Switzerland"],
+  ["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],
+  ["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TK","Tokelau"],
+  ["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],
+  ["TM","Turkmenistan"],["TC","Turks and Caicos Islands"],["TV","Tuvalu"],
+  ["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],
+  ["GB","United Kingdom"],["UM","United States Minor Outlying Islands"],
+  ["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],
+  ["VE","Venezuela"],["VN","Vietnam"],["VG","Virgin Islands, British"],
+  ["VI","Virgin Islands, U.S."],["WF","Wallis and Futuna"],
+  ["EH","Western Sahara"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]
+];
+const KB_COUNTRY_MAP = Object.fromEntries(KB_COUNTRIES.slice(1));
+
+/** <option> markup for a country <select data-ls="…">, `sel` the selected code. */
+function kbCountryOpts(sel) {
+  return KB_COUNTRIES.map(([c, n]) =>
+    `<option value="${kbEsc(c)}" ${c === sel ? "selected" : ""}>${kbEsc(n)}</option>`
+  ).join("");
+}
+
 /* ── Minimal markdown → HTML (for About boxes) ─────────────────────────────── */
 /* Supports #/##/### headings, **bold**, *italic*, [text](url), - bullet lists,
  * and blank-line-separated paragraphs. Escapes HTML (including quotes, so the
@@ -79,10 +168,23 @@ const KB_ICON = {
   moon:  `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
   sun:   `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`,
   about: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
+  sync:  `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
   warn:  `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>`,
   info:  `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
   menu:  `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`,
+  addNotes:    `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>`,
+  exportNotes: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 15h5M12 12l3 3-3 3"/></svg>`,
+  dataCheck:   `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+  tabMove:     `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M12 3v5M9 5l3 3 3-3"/></svg>`,
 };
+
+/** Build a standalone element from an inline SVG string in KB_ICON (whose
+ *  markup is otherwise only usable via innerHTML on an existing element). */
+function iconEl(svgMarkup) {
+  const wrap = el('span');
+  wrap.innerHTML = svgMarkup;
+  return wrap.firstElementChild || wrap;
+}
 
 /* ── Theme (light/dark) ────────────────────────────────────────────────────── */
 /* The pre-paint inline snippet in each app reads this same key before first
@@ -307,6 +409,77 @@ function kbHexRgb(hex) {
  *  filename: strip anything outside [a-zA-Z0-9_-]. */
 function kbSafeFilename(s) {
   return String(s || '').replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
+/* ── File download / upload ────────────────────────────────────────────────── */
+/** Trigger a browser download of `data` (a string, or an existing Blob) as
+ *  `filename`. Pure client-side — there is no server to upload to. */
+function kbDownloadFile(data, filename, mime) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: filename });
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Open a native file picker restricted to `accept` and resolve with the
+ *  picked file's text content (or null if the user cancels). A `window`
+ *  focus fires when the OS file dialog closes either way, so a cancelled
+ *  pick (no `change` event) is detected shortly after focus returns. */
+function kbReadFileAsText(accept) {
+  return new Promise(resolve => {
+    const input = el('input', { type: 'file', accept, style: { display: 'none' } });
+    let settled = false;
+    const finish = value => { if (settled) return; settled = true; input.remove(); resolve(value); };
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) { finish(null); return; }
+      const reader = new FileReader();
+      reader.onload = () => finish(String(reader.result || ''));
+      reader.onerror = () => finish(null);
+      reader.readAsText(file);
+    });
+    window.addEventListener('focus', function onFocus() {
+      window.removeEventListener('focus', onFocus);
+      setTimeout(() => finish(null), 300);
+    }, { once: true });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+/* ── Shared profile & per-app document records ─────────────────────────────── */
+/* A user's own identity (name/address/bank details/…) and the documents
+ * they've generated (invoices, expense reports, timesheets) are portable
+ * across browsers/machines via the dashboard app's export/import — see
+ * dashboard/index.html. These two localStorage keys are read/written from
+ * multiple apps, so they live here rather than in any one app. */
+const KB_PROFILE_KEY = 'kb-profile-v1';
+
+/** Read the shared profile, tolerant of it being missing or corrupt
+ *  (returns {} rather than throwing) — an app must never fail to boot
+ *  just because there's no profile saved yet. */
+function loadSharedProfile() {
+  try {
+    const raw = localStorage.getItem(KB_PROFILE_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    return (p && typeof p === 'object') ? p : {};
+  } catch (e) { return {}; }
+}
+
+function saveSharedProfile(profile) {
+  localStorage.setItem(KB_PROFILE_KEY, JSON.stringify(profile || {}));
+}
+
+/** Append `record` to the JSON array stored at `key` (created fresh if
+ *  missing/corrupt). Used by invoice/reimburse/timesheet to log a summary
+ *  of each document they generate, and read back by the dashboard app. */
+function kbPushRecord(key, record) {
+  let list;
+  try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
+  if (!Array.isArray(list)) list = [];
+  list.push(record);
+  localStorage.setItem(key, JSON.stringify(list));
 }
 
 /* ── Nav menu (apps + links dropdown, shared across every app's toolbar) ─────── */
